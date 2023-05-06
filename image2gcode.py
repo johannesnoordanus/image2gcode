@@ -151,17 +151,14 @@ def main() -> int:
 
     args = parser.parse_args()
 
-    if args.image:
-        # load and convert image to B&W
-        narr = loadImage(args.image.name,args.showimage)
+    # load and convert image to B&W
+    narr = loadImage(args.image.name,args.showimage)
 
-        print('Print area: ' + str(narr.shape[1] * args.pixelsize) + "mm x " + str(narr.shape[0] * args.pixelsize) + "mm")
+    print('Print area: ' + str(narr.shape[1] * args.pixelsize) + "mm x " + str(narr.shape[0] * args.pixelsize) + "mm")
 
-        # emit gcode for image
-        print(image2gcode(narr, args), file=args.gcode)
-        return 0
-
-    return 1
+    # emit gcode for image
+    print(image2gcode(narr, args), file=args.gcode)
+    return 0
 
 if __name__ == '__main__':
     sys.exit(main())
