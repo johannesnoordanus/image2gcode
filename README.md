@@ -11,11 +11,11 @@ Copy this file and run with ```python3 image2gcode.py ```(or ```chmod u+x image2
 
 Example:
 ```
-> python3 image2gcode.py logo.png logo.gc
+> image2gcode.py logo.png logo.gc
 ```
 Usage:
 ```
-> python3 image2gcode.py -h
+> image2gcode.py -h
 usage: image2gcode.py [-h] [-showimage] [-pixelsize default '0.1'mm] [-speed default '800'mm/min] [-power default '300' of 1000] image [gcode]
 
 Convert an image to gcode for GRBL v1.1 compatible diode laser engravers.
@@ -33,6 +33,6 @@ options:
                         draw speed in mm/min
   -power default '300' (of 1000)
                         maximum laser power while drawing, as a rule of thumb set to 1/3 of the machine maximum
-                        
+
 ```                        
                         
