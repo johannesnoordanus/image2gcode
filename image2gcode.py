@@ -2,6 +2,7 @@
 """
 image2gcode: convert an image to gcode.
 """
+__version__ = "v1.0.0-beta"
 
 import sys
 import argparse
@@ -58,7 +59,7 @@ def image2gcode(img, args) -> str:
 
     # header comment
     gcode = [';\n;    ' + sys.argv[0] + " (" + str(datetime.now()).split('.')[0] + ")\n" +
-        ';    Print area: ' + str(img.shape[1] * args.pixelsize) + "mm x " + str(img.shape[0] * args.pixelsize) + "mm\n;\n" ]
+        ';    Print area: ' + str(img.shape[1] * args.pixelsize) + "mm x " + str(img.shape[0] * args.pixelsize) + "mm (XY)\n;\n" ]
 
     # init gcode
     gcode += ["G00 G17 G40 G21 G54","G90"]
@@ -142,19 +143,21 @@ def main() -> int:
     parser = argparse.ArgumentParser(description='Convert an image to gcode for GRBL v1.1 compatible diode laser engravers.')
     parser.add_argument('image', type=argparse.FileType('r'), help='image file to be converted to gcode')
     parser.add_argument('gcode', type=argparse.FileType('w'), nargs='?', default = sys.stdout, help='gcode output')
-    parser.add_argument('-showimage', action='store_true', default=False, help='show b&w converted image' )
-    parser.add_argument('-pixelsize', default=pixelsize_default, metavar="default '"+str(pixelsize_default)+"'mm",
-            type=float, help='pixel size in mm (XY-axis): each image pixel is drawn this size')
-    parser.add_argument('-speed', default=speed_default, metavar="default '"+str(speed_default)+"'mm/min", type=int, help='draw speed in mm/min')
-    parser.add_argument('-power', default=power_default, metavar="default '"+str(power_default)+"' (of 1000)",
-            type=int, help='maximum laser power while drawing, as a rule of thumb set to 1/3 of the machine maximum')
+    parser.add_argument('--showimage', action='store_true', default=False, help='show b&w converted image' )
+    parser.add_argument('--pixelsize', default=pixelsize_default, metavar="<default:" + str(pixelsize_default)+">",
+        type=float, help="pixel size in mm (XY-axis): each image pixel is drawn this size")
+    parser.add_argument('--speed', default=speed_default, metavar="<default:" + str(speed_default)+">",
+        type=int, help='draw speed in mm/min')
+    parser.add_argument('--power', default=power_default, metavar="<default:" +str(power_default)+ ">",
+        type=int, help="maximum laser power while drawing (as a rule of thumb set to 1/3 of the machine maximum)")
+    parser.add_argument('-V', '--version', action='version', version='%(prog)s ' + __version__, help="show version number and exit")
 
     args = parser.parse_args()
 
     # load and convert image to B&W
     narr = loadImage(args.image.name,args.showimage)
 
-    print('Print area: ' + str(narr.shape[1] * args.pixelsize) + "mm x " + str(narr.shape[0] * args.pixelsize) + "mm")
+    print('Print area: ' + str(narr.shape[1] * args.pixelsize) + "mm x " + str(narr.shape[0] * args.pixelsize) + "mm (XY)")
 
     # emit gcode for image
     print(image2gcode(narr, args), file=args.gcode)
