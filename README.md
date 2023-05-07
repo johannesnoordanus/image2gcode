@@ -16,7 +16,7 @@ Example:
 Usage:
 ```
 > image2gcode.py -h
-usage: image2gcode.py [-h] [-showimage] [-pixelsize default '0.1'mm] [-speed default '800'mm/min] [-power default '300' of 1000] image [gcode]
+usage: image2gcode.py [-h] [--showimage] [--pixelsize <default:0.1>] [--speed <default:800>] [--power <default:300>] [-V] image [gcode]
 
 Convert an image to gcode for GRBL v1.1 compatible diode laser engravers.
 
@@ -26,13 +26,14 @@ positional arguments:
 
 options:
   -h, --help            show this help message and exit
-  -showimage            show b&w converted image
-  -pixelsize default '0.1'mm
+  --showimage           show b&w converted image
+  --pixelsize <default:0.1>
                         pixel size in mm (XY-axis): each image pixel is drawn this size
-  -speed default '800'mm/min
+  --speed <default:800>
                         draw speed in mm/min
-  -power default '300' (of 1000)
-                        maximum laser power while drawing, as a rule of thumb set to 1/3 of the machine maximum
+  --power <default:300>
+                        maximum laser power while drawing (as a rule of thumb set to 1/3 of the machine maximum)
+  -V, --version         show version number and exit
 
 ```                        
                         
