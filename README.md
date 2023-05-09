@@ -3,7 +3,7 @@ Convert an image to gcode for GRBL v1.1 compatible diode laser engravers.
 
 Diode lasers are fast at switching to different power levels. This makes them ideal to write pixels (with discrete intensity levels) at a relatively fast rate. This program converts image pixels to laser 'pixels' one on one. The laserhead sweeps from left to right and vice versa, with each sweep stepping in the other direction. Images (with or without Alpha channel) are converted to black&white first - laser intensity (burn rate) can be seen as a grayscale - and get a white background. Image pixel intensities are inverted (burnrate is an inverse scale) and translated to gcode commands.
 The translation produces dense gcode: pixels with same intensity are drawn with one gcode command and only coordinates and Gcomands that change are writen.
-Note that option ```--validate``` makes it possible to validate the gcode (result) file (this is an inverse conversion gcode2image).
+Note that option```--validate```makes it possible to validate the gcode (result) file (this is an inverse conversion gcode2image).
 
 It is important to use images that have a high contrast ratio, because burnlevels have less intensity range.
 
@@ -13,7 +13,7 @@ Copy this file and run with ```python3 image2gcode.py ```(or ```chmod u+x image2
 Example:
 ```
 > image2gcode.py logo.png logo.gc
-
+```
 Usage:
 ```
 > image2gcode.py -h
