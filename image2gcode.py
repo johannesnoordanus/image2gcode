@@ -188,7 +188,7 @@ def main() -> int:
         args.gcode.close()
         with open(args.gcode.name, "r") as fgcode:
             #img = gcode2image(fgcode, narr.shape, args)
-            img = gcode2image(Namespace(gcode = fgcode, offset = False, showG0 = True))
+            img = gcode2image(Namespace(gcode = fgcode, offset = False, showG0 = True, grid = False))
 
             # convert to image
             img = Image.fromarray(img)
