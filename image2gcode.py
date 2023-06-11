@@ -2,7 +2,7 @@
 """
 image2gcode: convert an image to gcode.
 """
-__version__ = "v1.1.0-beta"
+__version__ = "1.1.0"
 
 import sys
 import argparse
