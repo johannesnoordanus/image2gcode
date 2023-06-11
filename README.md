@@ -7,20 +7,12 @@ Note that option```--validate```makes it possible to validate the gcode (result)
 
 It is important to use images that have a high contrast ratio, because burnlevels have less intensity range.
 
-Installation note: 
-Copy this file and run with ```python3 image2gcode.py ```(or ```chmod u+x image2gcode.py``` and run with ```./image2gcode.py``` or just ```image2gcode.py``` when in $PATH)
-
 ### Install
-Depends on python libraries numpy, PIL (pip install ..).
-Depends on inverse function gcode2image.py ```--validate```option.</br>
-Should be 'installed' in $PATH or python path.
-(Download from https://github.com/johannesnoordanus/gcode2image/tree/main)
-
-Download 'image2gcode.py' and 'install' to a directory within $PATH (or within python path).</br>
-Then:
+Depends on python libraries *numpy*, *PIL* and (inverse function) *gcode2image* (https://github.com/johannesnoordanus/gcode2image/)
 ```
-> cd <above dir>
-> chmod u+x image2gcode.py    # to make it executable; thats it!
+> pip install gcode2image
+> pip install image2gcode
+>
 ```
 ### Example:
 ```
