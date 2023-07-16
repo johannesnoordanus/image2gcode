@@ -2,7 +2,7 @@
 """
 image2gcode: convert an image to gcode.
 """
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 
 import sys
 import argparse
@@ -176,7 +176,8 @@ def main() -> int:
         sys.exit(1)
 
     # load and convert image to B&W
-    narr = loadImage(args.image.name,args.showimage)
+    # flip image updown because Gcode and raster image coordinate system differ
+    narr = np.flipud(loadImage(args.image.name,args.showimage))
 
     print('Area: ' + str(round(narr.shape[1] * args.pixelsize,2)) + "mm x " + str(round(narr.shape[0] * args.pixelsize,2)) + "mm (XY)")
     print('> pixelsize', args.pixelsize, 'mm^2, speed', args.speed, 'mm/min, maxpower ' + str(args.maxpower) + ', offset', args.offset)
@@ -187,8 +188,8 @@ def main() -> int:
     if args.validate:
         args.gcode.close()
         with open(args.gcode.name, "r") as fgcode:
-            #img = gcode2image(fgcode, narr.shape, args)
-            img = gcode2image(Namespace(gcode = fgcode, offset = False, showG0 = True, grid = False))
+            # flip to raster image coordinate system
+            img = np.flipud(gcode2image(Namespace(gcode = fgcode, offset = False, showG0 = True, grid = False)))
 
             # convert to image
             img = Image.fromarray(img)
