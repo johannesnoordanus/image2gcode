@@ -1,0 +1,25 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "image2gcode"
+authors = [{name = "Johannes Noordanus", email = "mailjohannes.mailnoordanus@gmail.com"}]
+readme = "README.md"
+license = {file = "LICENSE"}
+classifiers = ["License :: OSI Approved :: MIT License"]
+dynamic = ["version", "description"]
+
+keywords = ["engraving", "laser", "image", "laser engraving", "PWM", "gcode"]
+dependencies = [
+    "numpy >= 1.24.3",
+    "Pillow >= 9.5.0",
+]
+
+requires-python = ">=3.10.6"
+
+[project.scripts]
+image2gcode = "image2gcode:main"
+
+[project.urls]
+Home = "https://github.com/johannesnoordanus/image2gcode"
