@@ -2,9 +2,10 @@
 """
 image2gcode: convert an image to gcode.
 """
-__version__ = "1.2.0"
+__version__ = "2.0.0"
 
 import sys
+import math
 import argparse
 from argparse import Namespace
 from datetime import datetime
@@ -40,6 +41,26 @@ def loadImage(imagefile: str = None, showimage: bool = True):
 
     return None
 
+def distance(A: (float,float),B: (float,float)):
+    """
+    Does Pythagoras
+    """
+    # |Ax - Bx|^2 + |Ay - By|^2 = C^2
+    # distance = √C^2
+    return math.sqrt(abs(A[0] - B[0])**2 + abs(A[1] - B[1])**2)
+
+def boundingbox(bbox:dict[str,float], XY: (float,float)) -> dict[str,float]:
+    """
+    boundingbox: update bounding box
+    """
+    if bbox is not None:
+        bbox["minX"] = XY[0] if XY[0] < bbox["minX"] else bbox["minX"]
+        bbox["minY"] = XY[1] if XY[1] < bbox["minY"] else bbox["minY"]
+        bbox["maxX"] = XY[0] if XY[0] > bbox["maxX"] else bbox["maxX"]
+        bbox["maxY"] = XY[1] if XY[1] > bbox["maxY"] else bbox["maxY"]
+
+    return bbox
+
 def image2gcode(img, args) -> str:
     """
     image2gcode: convert image to gcode
@@ -61,9 +82,10 @@ def image2gcode(img, args) -> str:
     gcode_footer = ["M5","M9","M2"]
 
     # header comment
-    gcode = [';\n;    ' + sys.argv[0] + " " +  __version__ + " (" + str(datetime.now()).split('.')[0] + ")\n" +
-        ';    Area: ' + str(round(img.shape[1] * args.pixelsize,2)) + "mm x " + str(round(img.shape[0] * args.pixelsize,2)) + "mm (XY)" +
-        ';    > pixelsize ' + str(args.pixelsize) + ' mm^2, speed ' + str(args.speed) + ' mm/min, maxpower ' + str(args.maxpower) + ', offset ' + str(args.offset) + "\n;\n" ]
+    gcode = [f";    {sys.argv[0]} {__version__} ({str(datetime.now()).split('.')[0]})\n"
+             f';    Area: {str(round(img.shape[1] * args.pixelsize,2))}mm X {str(round(img.shape[0] * args.pixelsize,2))}mm (XY)\n'
+             f';    > pixelsize {str(args.pixelsize)}mm^2, speed {str(args.speed)}mm/min, maxpower {str(args.maxpower)},\n'
+             f';      speedmoves {args.speedmoves}, noise level {args.noise}, offset {args.offset})\n;\n']
 
     # init gcode
     gcode += ["G00 G17 G40 G21 G54","G90"]
@@ -77,19 +99,33 @@ def image2gcode(img, args) -> str:
     # go to start
     gcode += [f"G0X{X}Y{Y}"]
 
+    # initiate boundingbox
+    bbox = {'minX':X,'minY':Y,'maxX':X,'maxY':Y}
+
     # set write speed and G1 move mode
     # (note that this stays into effect until another G code is executed,
     #  so we do not have to repeat this for all coordinates emitted below)
     gcode += [f"G1F{args.speed}"]
 
-    # Print left to right, right to left (etc.)
+    # Print left to right, shift one scan line down, then right to left,
+    # one scanline down (repeat)
+    #
     # Optimized gcode:
-    # - draw pixels until change of power
+    # - draw pixels in one go until change of power
     # - emit X/Y coordinates only when they change
-    # - emit linear move 'G1' code only once
-    # - does not emit in between spaces
+    # - emit linear move 'G1/G0' code minimally
+    # - does not emit zero power (or below cutoff) pixels
+    #
+    # General optimizations:
+    # - laser head has defered and sparse moves.
+    #   (XY locations are virtual, head does not always follow)
+    # - moves at high speed (G0) over 10mm (default) or more zero pixels
+    # - low burn levels (noise pixels) can be suppressed (default off)
     #
     left2right = True
+
+    # current location of laser head
+    head = (X,Y)
 
     # start print
     for line in img:
@@ -112,15 +148,41 @@ def image2gcode(img, args) -> str:
         for count, pixel in enumerate(line):
             laserpow = round((1.0 - float(pixel/255)) * args.maxpower) if invert_intensity else round(float(pixel/255) * args.maxpower)
 
-            # delay emit first pixel (so all same power pixels can be emitted in one sweep)
             if count == 0:
+                # delay emit first pixel (so all same power pixels can be emitted in one sweep)
                 prev_pow = laserpow
+                # set last head loaction on start of the line
+                lastloc = (X,Y)
 
             # draw pixels until change of power
             if laserpow != prev_pow or count == line.size-1:
-                code = f"X{X}"
-                code += f"S{prev_pow}"
-                gcode += [code]
+                #if prev_pow != 0:
+                if prev_pow > args.noise:
+                    code = ""
+                    if lastloc:
+                        # head is not at correct location, go there
+                        if args.speedmoves and (distance(head,(X,Y)) > args.speedmoves):
+                            # fast
+                            code = f"G0 X{lastloc[0]}Y{lastloc[1]}\n"
+                            code += f"G1\n"
+                        else:
+                            # normal speed
+                            code = f"X{lastloc[0]}Y{lastloc[1]} S0\n"
+
+                    # emit point
+                    code += f"X{X}S{prev_pow}"
+                    gcode += [code]
+
+                    # update boundingbox
+                    bbox = boundingbox(bbox, (X,Y))
+
+                    # head at this location
+                    head = (X,Y)
+                    lastloc = None
+                else:
+                    # didn't move head to location, save it
+                    lastloc = (X,Y)
+
                 if count == line.size-1:
                     continue
                 prev_pow = laserpow # if laserpow != prev_pow
@@ -128,12 +190,14 @@ def image2gcode(img, args) -> str:
             # next point
             X = round(X + (args.pixelsize if left2right else -args.pixelsize), XY_prec)
 
-        # go to next scan line
+        # next scan line (defer head movement)
         Y = round(Y + args.pixelsize, XY_prec)
-        gcode += [f"Y{Y}S0"]
 
         # change print direction
         left2right = not left2right
+
+    # emit bounding box
+    gcode = [f';\n;    Boundingbox: (X{bbox["minX"]},Y{bbox["minY"]}):(X{bbox["maxX"]},Y{bbox["maxY"]})\n;\n'] + gcode
 
     # laser off, fan off, program stop
     gcode += gcode_footer
@@ -148,6 +212,8 @@ def main() -> int:
     pixelsize_default = 0.1
     speed_default = 800
     power_default = 300
+    speedmoves_default = 10
+    noise_default = 0
 
     # Define command line argument interface
     parser = argparse.ArgumentParser(description='Convert an image to gcode for GRBL v1.1 compatible diode laser engravers.')
@@ -159,9 +225,13 @@ def main() -> int:
     parser.add_argument('--speed', default=speed_default, metavar="<default:" + str(speed_default)+">",
         type=int, help='draw speed in mm/min')
     parser.add_argument('--maxpower', default=power_default, metavar="<default:" +str(power_default)+ ">",
-        type=int, help="maximum laser power while drawing (as a rule of thumb set to 1/3 of the machine maximum)")
+        type=int, help="maximum laser power while drawing (as a rule of thumb set to 1/3 of the maximum of a machine having a 5W laser)")
     parser.add_argument('--offset', default=[10.0, 10.0], nargs=2, metavar=('X-off', 'Y-off'),
         type=float, help="laser drawing starts at offset (default: X10.0 Y10.0)")
+    parser.add_argument('--speedmoves', default=speedmoves_default, metavar="<default:" + str(speedmoves_default)+">",
+        type=float, help="length of zero burn zones in mm (0 sets no speedmoves): issue speed (G0) moves when skipping space of given length (or more)")
+    parser.add_argument('--noise', default=noise_default, metavar="<default:" +str(noise_default)+ ">",
+        type=int, help="noise power level, do not burn pixels below this power level")
     parser.add_argument('--validate', action='store_true', default=False, help='validate gcode file, do inverse and show image result' )
     parser.add_argument('-V', '--version', action='version', version='%(prog)s ' + __version__, help="show version number and exit")
 
@@ -179,8 +249,9 @@ def main() -> int:
     # flip image updown because Gcode and raster image coordinate system differ
     narr = np.flipud(loadImage(args.image.name,args.showimage))
 
-    print('Area: ' + str(round(narr.shape[1] * args.pixelsize,2)) + "mm x " + str(round(narr.shape[0] * args.pixelsize,2)) + "mm (XY)")
-    print('> pixelsize', args.pixelsize, 'mm^2, speed', args.speed, 'mm/min, maxpower ' + str(args.maxpower) + ', offset', args.offset)
+    print(f'Area: {str(round(narr.shape[1] * args.pixelsize,2))}mm X {str(round(narr.shape[0] * args.pixelsize,2))}mm (XY)\n'
+          f'    > pixelsize {args.pixelsize}mm^2, speed {args.speed}mm/min, maxpower {str(args.maxpower)},\n'
+          f'      speedmoves {args.speedmoves}, noise level {args.noise}, offset {args.offset})')
 
     # emit gcode for image
     print(image2gcode(narr, args), file=args.gcode)
