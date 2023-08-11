@@ -35,18 +35,23 @@ Note: on Manjaro it is 'pipx' now!
 ### Example:
 ```
 [somedir]> image2gcode --maxpower 300 --showimage --speedmoves 5 --noise 5 --validate test.png test.gc
-
-This command generates a gcode file 'test.gc' from an image 'test.png'. It burns pixels - .1mm^2 default - at a maximum of 300 (which level is laser machine dependend).
-Option --showimages starts an image viewer containing the original image in B&W and added white background (when transparent) and option --validate shows the resulting image via an inverse function - gcode2image - to be able to verify the gcode file. 
-Option --speedmove 5 generates a maximum speed moves (G0) for non burn zones which (can) speed up engravings significantly. Option --noise 5 omits all pixels having burn values of 5 or less, this can remove noise (stray pixels) from some images. 
-The result file 'test.gc' contains highly optimized gcodes (the file is of minimal length) and gcodes run a minimal path.
 ```
+This command generates a gcode file 'test.gc' from an image 'test.png'. It burns pixels - .1mm^2 default - 
+at a maximum of 300 (which level is laser machine dependend).
+Option --showimages starts an image viewer containing the original image in B&W and added white background 
+(when transparent) and option --validate shows the resulting image via an inverse function - gcode2image - 
+to be able to verify the gcode file. 
+Option --speedmove 5 generates a maximum speed moves (G0) for non burn zones which (can) speed up engravings 
+significantly. 
+Option --noise 5 omits all pixels having burn values of 5 or less, this can remove noise (stray pixels) from some images. 
+
+The result file 'test.gc' contains highly optimized gcodes (the file is of minimal length) and gcodes run a minimal path.
+
 ### Usage:
 ```
 [somedir]> image2gcode --help
-usage: image2gcode [-h] [--showimage] [--pixelsize <default:0.1>] [--speed <default:800>] [--maxpower <default:300>] [--offset X-off Y-off] [--speedmoves <default:10>]
-                   [--noise <default:0>] [--validate] [-V]
-                   image [gcode]
+usage: image2gcode [-h] [--showimage] [--pixelsize <default:0.1>] [--speed <default:800>] [--maxpower <default:300>] 
+       [--offset X-off Y-off] [--speedmoves <default:10>] [--noise <default:0>] [--validate] [-V] image [gcode]
 
 Convert an image to gcode for GRBL v1.1 compatible diode laser engravers.
 
@@ -67,6 +72,7 @@ options:
   --speedmoves <default:10>
                         length of zero burn zones in mm (0 sets no speedmoves): issue speed (G0) moves when skipping space of given length (or more)
   --noise <default:0>   noise power level, do not burn pixels below this power level
+  --constantburn        select constant burn mode M3 (a bit more dangerous!), instead of dynamic burn mode M4
   --validate            validate gcode file, do inverse and show image result
   -V, --version         show version number and exit
 
