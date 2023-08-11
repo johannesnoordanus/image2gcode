@@ -2,7 +2,7 @@
 """
 image2gcode: convert an image to gcode.
 """
-__version__ = "2.0.0"
+__version__ = "2.1.0"
 
 import sys
 import math
@@ -77,7 +77,7 @@ def image2gcode(img, args) -> str:
     XY_prec = len(str(args.pixelsize).split('.')[1])
 
     # on the safe side: laser stop, fan on, laser on while moving
-    gcode_header = ["M5","M8", "M4"]
+    gcode_header = ["M5","M8", 'M3' if args.constantburn else 'M4']
     # laser off, fan off, program stop
     gcode_footer = ["M5","M9","M2"]
 
@@ -85,7 +85,7 @@ def image2gcode(img, args) -> str:
     gcode = [f";    {sys.argv[0]} {__version__} ({str(datetime.now()).split('.')[0]})\n"
              f';    Area: {str(round(img.shape[1] * args.pixelsize,2))}mm X {str(round(img.shape[0] * args.pixelsize,2))}mm (XY)\n'
              f';    > pixelsize {str(args.pixelsize)}mm^2, speed {str(args.speed)}mm/min, maxpower {str(args.maxpower)},\n'
-             f';      speedmoves {args.speedmoves}, noise level {args.noise}, offset {args.offset})\n;\n']
+             f";      speedmoves {args.speedmoves}, noise level {args.noise}, offset {args.offset}, burn mode {'M3' if args.constantburn else 'M4'}\n;\n"]
 
     # init gcode
     gcode += ["G00 G17 G40 G21 G54","G90"]
@@ -232,6 +232,7 @@ def main() -> int:
         type=float, help="length of zero burn zones in mm (0 sets no speedmoves): issue speed (G0) moves when skipping space of given length (or more)")
     parser.add_argument('--noise', default=noise_default, metavar="<default:" +str(noise_default)+ ">",
         type=int, help="noise power level, do not burn pixels below this power level")
+    parser.add_argument('--constantburn', action='store_true', default=False, help='select constant burn mode M3 (a bit more dangerous!), instead of dynamic burn mode M4')
     parser.add_argument('--validate', action='store_true', default=False, help='validate gcode file, do inverse and show image result' )
     parser.add_argument('-V', '--version', action='version', version='%(prog)s ' + __version__, help="show version number and exit")
 
@@ -251,7 +252,7 @@ def main() -> int:
 
     print(f'Area: {str(round(narr.shape[1] * args.pixelsize,2))}mm X {str(round(narr.shape[0] * args.pixelsize,2))}mm (XY)\n'
           f'    > pixelsize {args.pixelsize}mm^2, speed {args.speed}mm/min, maxpower {str(args.maxpower)},\n'
-          f'      speedmoves {args.speedmoves}, noise level {args.noise}, offset {args.offset})')
+          f"      speedmoves {args.speedmoves}, noise level {args.noise}, offset {args.offset}, burn mode {'M3' if args.constantburn else 'M4'}")
 
     # emit gcode for image
     print(image2gcode(narr, args), file=args.gcode)
