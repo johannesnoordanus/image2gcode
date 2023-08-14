@@ -2,7 +2,7 @@
 """
 image2gcode: convert an image to gcode.
 """
-__version__ = "2.1.0"
+__version__ = "2.2.1"
 
 import sys
 import math
@@ -261,7 +261,7 @@ def main() -> int:
         args.gcode.close()
         with open(args.gcode.name, "r") as fgcode:
             # flip to raster image coordinate system
-            img = np.flipud(gcode2image(Namespace(gcode = fgcode, offset = False, showG0 = True, grid = False)))
+            img = np.flipud(gcode2image(Namespace(gcode = fgcode, showOrigin = True, showG0 = True, grid = True)))
 
             # convert to image
             img = Image.fromarray(img)
