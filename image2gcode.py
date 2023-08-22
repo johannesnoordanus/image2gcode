@@ -2,7 +2,7 @@
 """
 image2gcode: convert an image to gcode.
 """
-__version__ = "2.2.1"
+__version__ = "2.2.2"
 
 import sys
 import math
