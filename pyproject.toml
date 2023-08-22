@@ -12,12 +12,12 @@ dynamic = ["version", "description"]
 
 keywords = ["engraving", "laser", "image", "laser engraving", "PWM", "gcode"]
 dependencies = [
-    "gcode2image >= 2.0.0",
+    "gcode2image >= 2.2",
     "numpy >= 1.24.3",
     "Pillow >= 9.5.0",
 ]
 
-requires-python = ">=3.10.6"
+requires-python = ">=3.7"
 
 [project.scripts]
 image2gcode = "image2gcode:main"
