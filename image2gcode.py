@@ -2,7 +2,7 @@
 """
 image2gcode: convert an image to gcode.
 """
-__version__ = "2.2.2"
+__version__ = "2.3.0"
 
 import sys
 import math
@@ -18,23 +18,27 @@ try:
 except ImportError:
     GCODE2IMAGE = False
 
-def loadImage(imagefile: str = None, showimage: bool = True):
+def loadImage(args):
     """
     loadimage: load an image and convert it to b&w with white background
     """
 
-    if imagefile:
+    if args.image:
         # add alpha channel
-        img = Image.open(imagefile).convert("RGBA")
+        img = Image.open(args.image.name).convert("RGBA")
 
         # create a white background and add it to the image
         img_background = Image.new(mode = "RGBA", size = img.size, color = (255,255,255))
         img = Image.alpha_composite(img_background, img)
 
-        # convert image to black&white (same size)
-        img = img.resize(img.size, Image.Resampling.LANCZOS).convert("L")
-        if showimage:
+        if args.showimage:
             img.show()
+
+        # set image resolution based on a DPI of 254 (10 pixels per mm) and given pixelsize
+        size = (round(img.size[0]/(10 * args.pixelsize)) + 1, round(img.size[1]/(10 *args.pixelsize)) + 1)
+
+        # convert image to black&white and resize
+        img = img.resize(size, Image.Resampling.LANCZOS).convert("L")
 
         # return np array of image
         return np.array(img)
@@ -248,7 +252,7 @@ def main() -> int:
 
     # load and convert image to B&W
     # flip image updown because Gcode and raster image coordinate system differ
-    narr = np.flipud(loadImage(args.image.name,args.showimage))
+    narr = np.flipud(loadImage(args))
 
     print(f'Area: {str(round(narr.shape[1] * args.pixelsize,2))}mm X {str(round(narr.shape[0] * args.pixelsize,2))}mm (XY)\n'
           f'    > pixelsize {args.pixelsize}mm^2, speed {args.speed}mm/min, maxpower {str(args.maxpower)},\n'
@@ -261,7 +265,7 @@ def main() -> int:
         args.gcode.close()
         with open(args.gcode.name, "r") as fgcode:
             # flip to raster image coordinate system
-            img = np.flipud(gcode2image(Namespace(gcode = fgcode, showOrigin = True, resolution = args.pixelsize, showG0 = True, grid = True)))
+            img = np.flipud(gcode2image(Namespace(gcode = fgcode, resolution = args.pixelsize, showG0 = False, showOrigin = True, grid = True)))
 
             # convert to image
             img = Image.fromarray(img)
