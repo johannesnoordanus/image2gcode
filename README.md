@@ -1,13 +1,20 @@
 # image2gcode
-Convert an image to gcode for GRBL v1.1 compatible diode laser engravers.
+Convert an image to gcode for GRBL v1.1 compatible diode laser engravers. 
 
-Diode lasers are fast at switching to different power levels. This makes them ideal to write pixels (with discrete intensity levels) at a relatively fast rate. This program converts image pixels to laser 'pixels' one on one. The laserhead sweeps from left to right and vice versa, with each sweep stepping in the other direction. Images (with or without Alpha channel) are converted to black&white first - laser intensity (burn rate) can be seen as a grayscale - and get a white background. Image pixel intensities are inverted (burnrate is an inverse scale) and translated to gcode commands.
-The translation produces dense gcode: pixels with same intensity are drawn with one gcode command and only coordinates and Gcomands that change are writen.
-Note that option```--validate```makes it possible to validate the gcode (result) file (this is inverse conversion gcode2image).
+Diode lasers are fast at switching to different power levels. This makes them ideal to write pixels (with discrete intensity levels) at a relatively fast rate.
 
-It is important to use images that have a high contrast ratio, because burnlevels have less intensity range.
+This program converts each image pixel to a gcode move of *--pixelsize* length - one on one.
+Images (with or without Alpha channel) are converted to black&white first - laser intensity (burn rate) can be seen as a grayscale - and get a white background. 
+Image pixel intensities are inverted (burnrate is an inverse scale) and translated to gcode ```move``` commands. Note that the image to convert is unaltered in all other aspects and keeps its pixel dimensions!
 
-Version 2.0.0 has important new speed optimizations. Engravings run significantly faster and skip from one image zone to the other at maximum speed. See options ```--speedmoves``` and ```--noise``` for example.
+Conversion produces optimized gcode: pixels with same intensity are drawn with one gcode ```move``` command and only coordinates and gcode comands that change are writen.
+Images are drawn in a scan line way: the laserhead sweeps from left to right and vice versa, with each sweep stepping in the other direction, but images are drawn within their outline only and background (white) is skipped at maximum speed between image 'zones'. See options *--speedmoves* and *--noise*.
+
+It is possible to validate the gcode produced in one go: its size, placement and pixel burnlevels are visible with switch ```--validate```. Further information can be obtained by looking at the header of the gcode file produced.
+
+Note that to get great engravings it is important to use source images that have a high contrast ratio, because burnlevels have less intensity range. To get an engraving the right size, make sure images have enough pixels.
+For example if your machines laser width is 0.08mm I would recomment using a pixel size of 0.1mm, an engraving of 50x65 mm^2 (*width*x*height*) will need the source image resolution to be 500x650 pixels (*width*x*height*) in this case.
+
 
 To summarize:
 
@@ -26,16 +33,14 @@ General optimizations
 ### Install
 Depends on python libraries *numpy*, *PIL* and (inverse function) *gcode2image* (https://github.com/johannesnoordanus/gcode2image/)
 ```
-> pip install gcode2image
 > pip install image2gcode
->
 
 Note: on Manjaro it is 'pipx' now!
 ```
 ### Example:
 ```
 [somedir]> image2gcode --maxpower 300 --showimage --speedmoves 5 --noise 5 --validate test.png test.gc
-```
+
 This command generates a gcode file 'test.gc' from an image 'test.png'. It burns pixels - .1mm^2 default - 
 at a maximum of 300 (which level is laser machine dependend).
 Option --showimages starts an image viewer containing the original image in B&W and added white background 
@@ -46,14 +51,16 @@ significantly.
 Option --noise 5 omits all pixels having burn values of 5 or less, this can remove noise (stray pixels) from some images. 
 
 The result file 'test.gc' contains highly optimized gcodes (the file is of minimal length) and gcodes run a minimal path.
-
+```
 ### Usage:
 ```
-[somedir]> image2gcode --help
-usage: image2gcode [-h] [--showimage] [--pixelsize <default:0.1>] [--speed <default:800>] [--maxpower <default:300>] 
-       [--offset X-off Y-off] [--speedmoves <default:10>] [--noise <default:0>] [--validate] [-V] image [gcode]
+> image2gcode --help
+usage: image2gcode [-h] [--showimage] [--pixelsize <default:0.1>] [--speed <default:800>] [--maxpower <default:300>] [--offset X-off Y-off]
+                   [--speedmoves <default:10>] [--noise <default:0>] [--constantburn] [--validate] [-V]
+                   image [gcode]
 
-Convert an image to gcode for GRBL v1.1 compatible diode laser engravers.
+Convert an image to gcode for GRBL v1.1 compatible diode laser engravers,
+ each image pixel is converted to a gcode move of pixelsize length.
 
 positional arguments:
   image                 image file to be converted to gcode
@@ -75,5 +82,4 @@ options:
   --constantburn        select constant burn mode M3 (a bit more dangerous!), instead of dynamic burn mode M4
   --validate            validate gcode file, do inverse and show image result
   -V, --version         show version number and exit
-
-```                        
+```
