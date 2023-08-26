@@ -2,8 +2,9 @@
 """
 image2gcode: convert an image to gcode.
 """
-__version__ = "2.3.0"
+__version__ = "2.4.0"
 
+import os
 import sys
 import math
 import argparse
@@ -20,7 +21,7 @@ except ImportError:
 
 def loadImage(args):
     """
-    loadimage: load an image and convert it to b&w with white background
+    loadimage: load an image and convert it to b&w and white background
     """
 
     if args.image:
@@ -34,11 +35,10 @@ def loadImage(args):
         if args.showimage:
             img.show()
 
-        # set image resolution based on a DPI of 254 (10 pixels per mm) and given pixelsize
-        size = (round(img.size[0]/(10 * args.pixelsize)) + 1, round(img.size[1]/(10 *args.pixelsize)) + 1)
-
-        # convert image to black&white and resize
-        img = img.resize(size, Image.Resampling.LANCZOS).convert("L")
+        # convert image to black&white
+        # Note that the image keeps its resolution (same number of pixels for x and y-axis)
+        #  each image pixel is converted to a gcode move of pixelsize length
+        img = img.resize(img.size, Image.Resampling.LANCZOS).convert("L")
 
         # return np array of image
         return np.array(img)
@@ -67,7 +67,7 @@ def boundingbox(bbox:dict[str,float], XY: (float,float)) -> dict[str,float]:
 
 def image2gcode(img, args) -> str:
     """
-    image2gcode: convert image to gcode
+    image2gcode: convert image to gcode (each image pixel is converted to a gcode move of pixelsize length)
     """
 
     # args settings:
@@ -86,7 +86,7 @@ def image2gcode(img, args) -> str:
     gcode_footer = ["M5","M9","M2"]
 
     # header comment
-    gcode = [f";    {sys.argv[0]} {__version__} ({str(datetime.now()).split('.')[0]})\n"
+    gcode = [f";    {os.path.basename(sys.argv[0])} {__version__} ({str(datetime.now()).split('.')[0]})\n"
              f';    Area: {str(round(img.shape[1] * args.pixelsize,2))}mm X {str(round(img.shape[0] * args.pixelsize,2))}mm (XY)\n'
              f';    > pixelsize {str(args.pixelsize)}mm^2, speed {str(args.speed)}mm/min, maxpower {str(args.maxpower)},\n'
              f";      speedmoves {args.speedmoves}, noise level {args.noise}, offset {args.offset}, burn mode {'M3' if args.constantburn else 'M4'}\n;\n"]
@@ -220,7 +220,9 @@ def main() -> int:
     noise_default = 0
 
     # Define command line argument interface
-    parser = argparse.ArgumentParser(description='Convert an image to gcode for GRBL v1.1 compatible diode laser engravers.')
+    parser = argparse.ArgumentParser(description='Convert an image to gcode for GRBL v1.1 compatible diode laser engravers,\n'
+                                                 ' each image pixel is converted to a gcode move of pixelsize length.'
+                                     , formatter_class=argparse.RawTextHelpFormatter )
     parser.add_argument('image', type=argparse.FileType('r'), help='image file to be converted to gcode')
     parser.add_argument('gcode', type=argparse.FileType('w'), nargs='?', default = sys.stdout, help='gcode output')
     parser.add_argument('--showimage', action='store_true', default=False, help='show b&w converted image' )
@@ -265,7 +267,7 @@ def main() -> int:
         args.gcode.close()
         with open(args.gcode.name, "r") as fgcode:
             # flip to raster image coordinate system
-            img = np.flipud(gcode2image(Namespace(gcode = fgcode, resolution = args.pixelsize, showG0 = False, showOrigin = True, grid = True)))
+            img = np.flipud(gcode2image(Namespace(gcode = fgcode, resolution = args.pixelsize, showG0 = False, showorigin = True, grid = True)))
 
             # convert to image
             img = Image.fromarray(img)
