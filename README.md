@@ -15,6 +15,8 @@ It is possible to validate the gcode produced in one go: its size, placement and
 Note that to get great engravings it is important to use source images that have a high contrast ratio, because burnlevels have less intensity range. To get an engraving the right size, make sure images have enough pixels.
 For example if your machines laser width is 0.08mm I would recomment using a pixel size of 0.1mm, an engraving of 50x65 mm^2 (*width*x*height*) will need the source image resolution to be 500x650 pixels (*width*x*height*) in this case.
 
+If this is too cumbersome, use option --size (release 2.5.0 or above), also to get the origin at the center, set --center
+
 
 To summarize:
 
@@ -54,9 +56,10 @@ The result file 'test.gc' contains highly optimized gcodes (the file is of minim
 ```
 ### Usage:
 ```
-> image2gcode --help
-usage: image2gcode [-h] [--showimage] [--pixelsize <default:0.1>] [--speed <default:800>] [--maxpower <default:300>] [--offset X-off Y-off]
-                   [--speedmoves <default:10>] [--noise <default:0>] [--constantburn] [--validate] [-V]
+$ image2gcode --help
+usage: image2gcode [-h] [--showimage] [--pixelsize <default:0.1>] [--speed <default:800>] [--maxpower <default:300>]
+                   [--size gcode-width gcode-height] [--offset X-off Y-off] [--center] [--speedmoves <default:10>]
+                   [--noise <default:0>] [--constantburn] [--validate] [-V]
                    image [gcode]
 
 Convert an image to gcode for GRBL v1.1 compatible diode laser engravers,
@@ -75,7 +78,10 @@ options:
                         draw speed in mm/min
   --maxpower <default:300>
                         maximum laser power while drawing (as a rule of thumb set to 1/3 of the maximum of a machine having a 5W laser)
-  --offset X-off Y-off  laser drawing starts at offset (default: X10.0 Y10.0)
+  --size gcode-width gcode-height
+                        target gcode width and height in mm (default: not set and determined by pixelsize and image source resolution)
+  --offset X-off Y-off  laser drawing starts at offset in mm (default not set, --center cannot be set at the same time)
+  --center              set origin at the image center (--offset cannot be set at the same time)
   --speedmoves <default:10>
                         length of zero burn zones in mm (0 sets no speedmoves): issue speed (G0) moves when skipping space of given length (or more)
   --noise <default:0>   noise power level, do not burn pixels below this power level
