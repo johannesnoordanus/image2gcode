@@ -2,7 +2,7 @@
 """
 image2gcode: convert an image to gcode.
 """
-__version__ = "2.4.0"
+__version__ = "2.5.0"
 
 import os
 import sys
@@ -32,13 +32,18 @@ def loadImage(args):
         img_background = Image.new(mode = "RGBA", size = img.size, color = (255,255,255))
         img = Image.alpha_composite(img_background, img)
 
+        if args.size is not None:
+            # convert image to black&white (without alpha) and requested size
+            img = img.resize((int(args.size[0]/args.pixelsize),
+                              int(args.size[1]/args.pixelsize)), Image.Resampling.LANCZOS).convert("L")
+        else:
+            # convert image to black&white
+            # Note that the image keeps its resolution (same number of pixels for x and y-axis)
+            #  each image pixel is converted to a gcode move of pixelsize length
+            img = img.resize(img.size, Image.Resampling.LANCZOS).convert("L")
+
         if args.showimage:
             img.show()
-
-        # convert image to black&white
-        # Note that the image keeps its resolution (same number of pixels for x and y-axis)
-        #  each image pixel is converted to a gcode move of pixelsize length
-        img = img.resize(img.size, Image.Resampling.LANCZOS).convert("L")
 
         # return np array of image
         return np.array(img)
@@ -232,8 +237,11 @@ def main() -> int:
         type=int, help='draw speed in mm/min')
     parser.add_argument('--maxpower', default=power_default, metavar="<default:" +str(power_default)+ ">",
         type=int, help="maximum laser power while drawing (as a rule of thumb set to 1/3 of the maximum of a machine having a 5W laser)")
-    parser.add_argument('--offset', default=[10.0, 10.0], nargs=2, metavar=('X-off', 'Y-off'),
-        type=float, help="laser drawing starts at offset (default: X10.0 Y10.0)")
+    parser.add_argument('--size', default=None, nargs=2, metavar=('gcode-width', 'gcode-height'),
+        type=float, help="target gcode width and height in mm (default: not set and determined by pixelsize and image source resolution)")
+    parser.add_argument('--offset', default=None, nargs=2, metavar=('X-off', 'Y-off'),
+        type=float, help="laser drawing starts at offset in mm (default not set, --center cannot be set at the same time)")
+    parser.add_argument('--center', action='store_true', default=False, help='set origin at the image center (--offset cannot be set at the same time)' )
     parser.add_argument('--speedmoves', default=speedmoves_default, metavar="<default:" + str(speedmoves_default)+">",
         type=float, help="length of zero burn zones in mm (0 sets no speedmoves): issue speed (G0) moves when skipping space of given length (or more)")
     parser.add_argument('--noise', default=noise_default, metavar="<default:" +str(noise_default)+ ">",
@@ -244,6 +252,7 @@ def main() -> int:
 
     args = parser.parse_args()
 
+    # check incompatible arguments
     if args.validate and (args.gcode.name == "<stdout>" or not GCODE2IMAGE):
         if not GCODE2IMAGE:
             print("For validation package gcode2image.py must be installed (in $PATH or python install path)")
@@ -252,9 +261,19 @@ def main() -> int:
             parser.print_usage(sys.stderr)
         sys.exit(1)
 
+    if args.center and args.offset is not None:
+        print("options --center and --offset cannot be combined!")
+        sys.exit(1)
+
+    if args.offset is None:
+        args.offset = (0.0, 0.0)
+
     # load and convert image to B&W
     # flip image updown because Gcode and raster image coordinate system differ
     narr = np.flipud(loadImage(args))
+
+    if args.center:
+        args.offset = (-round((narr.shape[1] * args.pixelsize)/2,1), -round((narr.shape[0] * args.pixelsize)/2,1))
 
     print(f'Area: {str(round(narr.shape[1] * args.pixelsize,2))}mm X {str(round(narr.shape[0] * args.pixelsize,2))}mm (XY)\n'
           f'    > pixelsize {args.pixelsize}mm^2, speed {args.speed}mm/min, maxpower {str(args.maxpower)},\n'
@@ -274,8 +293,6 @@ def main() -> int:
 
             # show image
             img.show()
-            # write image file (png)
-            #pic.save(args.gcode.name.split('.')[0] + '_' + sys.argv[0].split('.')[0] + '.png')
 
     return 0
 
