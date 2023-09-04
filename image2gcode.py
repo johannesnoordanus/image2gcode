@@ -2,7 +2,7 @@
 """
 image2gcode: convert an image to gcode.
 """
-__version__ = "2.5.0"
+__version__ = "2.6.0"
 
 import os
 import sys
@@ -94,7 +94,8 @@ def image2gcode(img, args) -> str:
     gcode = [f";    {os.path.basename(sys.argv[0])} {__version__} ({str(datetime.now()).split('.')[0]})\n"
              f';    Area: {str(round(img.shape[1] * args.pixelsize,2))}mm X {str(round(img.shape[0] * args.pixelsize,2))}mm (XY)\n'
              f';    > pixelsize {str(args.pixelsize)}mm^2, speed {str(args.speed)}mm/min, maxpower {str(args.maxpower)},\n'
-             f";      speedmoves {args.speedmoves}, noise level {args.noise}, offset {args.offset}, burn mode {'M3' if args.constantburn else 'M4'}\n;\n"]
+             f";      speedmoves {args.speedmoves}, noise level {args.noise}, offset {args.offset}, burn mode {'M3' if args.constantburn else 'M4'}, "
+             f'overscan {args.overscan}\n;\n']
 
     # init gcode
     gcode += ["G00 G17 G40 G21 G54","G90"]
@@ -160,12 +161,12 @@ def image2gcode(img, args) -> str:
             if count == 0:
                 # delay emit first pixel (so all same power pixels can be emitted in one sweep)
                 prev_pow = laserpow
-                # set last head loaction on start of the line
+                # set last location on start of the line
                 lastloc = (X,Y)
 
             # draw pixels until change of power
             if laserpow != prev_pow or count == line.size-1:
-                #if prev_pow != 0:
+                # skip all zero power points
                 if prev_pow > args.noise:
                     code = ""
                     if lastloc:
@@ -176,7 +177,18 @@ def image2gcode(img, args) -> str:
                             code += f"G1\n"
                         else:
                             # normal speed
-                            code = f"X{lastloc[0]}Y{lastloc[1]} S0\n"
+                            if args.overscan and head[1] != Y:
+                                if left2right:
+                                    # go to next line and start overscan pixels earlier
+                                    min_X = round(args.offset[0], XY_prec)
+                                    overscanpixels = round(lastloc[0] - (args.overscan * args.pixelsize), XY_prec)
+                                    overscanpixels = overscanpixels if overscanpixels > min_X else min_X
+                                else:
+                                    max_X = round(args.offset[0] + (line.size * args.pixelsize), XY_prec)
+                                    overscanpixels = round(lastloc[0] + (args.overscan * args.pixelsize), XY_prec)
+                                    overscanpixels = overscanpixels if overscanpixels < max_X else max_X
+                                code = f"X{overscanpixels}Y{lastloc[1]}S0\n"
+                            code += f"X{lastloc[0]}Y{lastloc[1]}S0\n"
 
                     # emit point
                     code += f"X{X}S{prev_pow}"
@@ -193,6 +205,22 @@ def image2gcode(img, args) -> str:
                     lastloc = (X,Y)
 
                 if count == line.size-1:
+                    # overscan this line (if we can)
+                    if args.overscan and head[1] == Y and lastloc is not None:
+                        # one or more points are drawn on this line, but one or more zero power pixels are not drawn
+                        if left2right:
+                            overscanpixels = min(round(head[0] + (args.overscan * args.pixelsize), XY_prec),
+                                                 round(args.offset[0] + (line.size * args.pixelsize), XY_prec))
+                        else:
+                            overscanpixels = max(round(head[0] - (args.overscan * args.pixelsize), XY_prec),
+                                                 round(args.offset[0], XY_prec))
+
+                        # emit overscan pixels
+                        code = f"X{overscanpixels}S0"
+                        gcode += [code]
+
+                        # head at this location
+                        head = (overscanpixels,Y)
                     continue
                 prev_pow = laserpow # if laserpow != prev_pow
 
@@ -223,6 +251,7 @@ def main() -> int:
     power_default = 300
     speedmoves_default = 10
     noise_default = 0
+    overscan_default = 0
 
     # Define command line argument interface
     parser = argparse.ArgumentParser(description='Convert an image to gcode for GRBL v1.1 compatible diode laser engravers,\n'
@@ -246,6 +275,8 @@ def main() -> int:
         type=float, help="length of zero burn zones in mm (0 sets no speedmoves): issue speed (G0) moves when skipping space of given length (or more)")
     parser.add_argument('--noise', default=noise_default, metavar="<default:" +str(noise_default)+ ">",
         type=int, help="noise power level, do not burn pixels below this power level")
+    parser.add_argument('--overscan', default=overscan_default, metavar="<default:" +str(overscan_default)+ ">",
+        type=int, help="overscan image lines to avoid incorrect power levels for pixels at left and right borders, number in pixels, default off")
     parser.add_argument('--constantburn', action='store_true', default=False, help='select constant burn mode M3 (a bit more dangerous!), instead of dynamic burn mode M4')
     parser.add_argument('--validate', action='store_true', default=False, help='validate gcode file, do inverse and show image result' )
     parser.add_argument('-V', '--version', action='version', version='%(prog)s ' + __version__, help="show version number and exit")
@@ -277,7 +308,8 @@ def main() -> int:
 
     print(f'Area: {str(round(narr.shape[1] * args.pixelsize,2))}mm X {str(round(narr.shape[0] * args.pixelsize,2))}mm (XY)\n'
           f'    > pixelsize {args.pixelsize}mm^2, speed {args.speed}mm/min, maxpower {str(args.maxpower)},\n'
-          f"      speedmoves {args.speedmoves}, noise level {args.noise}, offset {args.offset}, burn mode {'M3' if args.constantburn else 'M4'}")
+          f"      speedmoves {args.speedmoves}, noise level {args.noise}, offset {args.offset}, burn mode {'M3' if args.constantburn else 'M4'},"
+          f' overscan {args.overscan}')
 
     # emit gcode for image
     print(image2gcode(narr, args), file=args.gcode)
