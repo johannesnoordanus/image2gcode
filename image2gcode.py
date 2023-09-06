@@ -2,7 +2,7 @@
 """
 image2gcode: convert an image to gcode.
 """
-__version__ = "2.6.0"
+__version__ = "2.6.2"
 
 import os
 import sys
@@ -93,9 +93,15 @@ def image2gcode(img, args) -> str:
     # header comment
     gcode = [f";    {os.path.basename(sys.argv[0])} {__version__} ({str(datetime.now()).split('.')[0]})\n"
              f';    Area: {str(round(img.shape[1] * args.pixelsize,2))}mm X {str(round(img.shape[0] * args.pixelsize,2))}mm (XY)\n'
-             f';    > pixelsize {str(args.pixelsize)}mm^2, speed {str(args.speed)}mm/min, maxpower {str(args.maxpower)},\n'
-             f";      speedmoves {args.speedmoves}, noise level {args.noise}, offset {args.offset}, burn mode {'M3' if args.constantburn else 'M4'}, "
-             f'overscan {args.overscan}\n;\n']
+             f';    arguments:\n'
+             f';      pixelsize: {str(args.pixelsize)}mm^2,\n'
+             f';      speed: {str(args.speed)}mm/min,\n'
+             f';      maxpower: {str(args.maxpower)},\n'
+             f";      speedmoves: {args.speedmoves},\n"
+             f";      noise level: {args.noise},\n"
+             f";      offset: {args.offset},\n"
+             f";      burn mode: {'M3' if args.constantburn else 'M4'},\n"
+             f';      overscan {args.overscan}\n']
 
     # init gcode
     gcode += ["G00 G17 G40 G21 G54","G90"]
