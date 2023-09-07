@@ -167,19 +167,19 @@ def image2gcode(img, args) -> str:
             if count == 0:
                 # delay emit first pixel (so all same power pixels can be emitted in one sweep)
                 prev_pow = laserpow
-                # set last location on start of the line
-                lastloc = (X,Y)
+                # set last noise location on start of the line
+                lastnoiseloc = (X,Y)
 
             # draw pixels until change of power
             if laserpow != prev_pow or count == line.size-1:
                 # skip all zero power points
                 if prev_pow > args.noise:
                     code = ""
-                    if lastloc:
+                    if lastnoiseloc:
                         # head is not at correct location, go there
                         if args.speedmoves and (distance(head,(X,Y)) > args.speedmoves):
                             # fast
-                            code = f"G0 X{lastloc[0]}Y{lastloc[1]}\n"
+                            code = f"G0 X{lastnoiseloc[0]}Y{lastnoiseloc[1]}\n"
                             code += f"G1\n"
                         else:
                             # normal speed
@@ -187,14 +187,14 @@ def image2gcode(img, args) -> str:
                                 if left2right:
                                     # go to next line and start overscan pixels earlier
                                     min_X = round(args.offset[0], XY_prec)
-                                    overscanpixels = round(lastloc[0] - (args.overscan * args.pixelsize), XY_prec)
+                                    overscanpixels = round(lastnoiseloc[0] - (args.overscan * args.pixelsize), XY_prec)
                                     overscanpixels = overscanpixels if overscanpixels > min_X else min_X
                                 else:
                                     max_X = round(args.offset[0] + (line.size * args.pixelsize), XY_prec)
-                                    overscanpixels = round(lastloc[0] + (args.overscan * args.pixelsize), XY_prec)
+                                    overscanpixels = round(lastnoiseloc[0] + (args.overscan * args.pixelsize), XY_prec)
                                     overscanpixels = overscanpixels if overscanpixels < max_X else max_X
-                                code = f"X{overscanpixels}Y{lastloc[1]}S0\n"
-                            code += f"X{lastloc[0]}Y{lastloc[1]}S0\n"
+                                code = f"X{overscanpixels}Y{lastnoiseloc[1]}S0\n"
+                            code += f"X{lastnoiseloc[0]}Y{lastnoiseloc[1]}S0\n"
 
                     # emit point
                     code += f"X{X}S{prev_pow}"
@@ -205,14 +205,14 @@ def image2gcode(img, args) -> str:
 
                     # head at this location
                     head = (X,Y)
-                    lastloc = None
+                    lastnoiseloc = None
                 else:
                     # didn't move head to location, save it
-                    lastloc = (X,Y)
+                    lastnoiseloc = (X,Y)
 
                 if count == line.size-1:
                     # overscan this line (if we can)
-                    if args.overscan and head[1] == Y and lastloc is not None:
+                    if args.overscan and head[1] == Y and lastnoiseloc is not None:
                         # one or more points are drawn on this line, but one or more zero power pixels are not drawn
                         if left2right:
                             overscanpixels = min(round(head[0] + (args.overscan * args.pixelsize), XY_prec),
