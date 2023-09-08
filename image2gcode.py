@@ -2,7 +2,7 @@
 """
 image2gcode: convert an image to gcode.
 """
-__version__ = "2.6.2"
+__version__ = "2.6.3"
 
 import os
 import sys
@@ -10,8 +10,15 @@ import math
 import argparse
 from argparse import Namespace
 from datetime import datetime
+from collections.abc import Callable
+from typing import Tuple
+
 from PIL import Image
 import numpy as np
+
+# pip install nptyping[complete]
+# https://github.com/ramonhagenaars/nptyping/blob/master/USERDOCS.md#Quickstart
+from nptyping import NDArray, UInt8, Shape
 
 GCODE2IMAGE = True
 try:
@@ -19,7 +26,7 @@ try:
 except ImportError:
     GCODE2IMAGE = False
 
-def loadImage(args):
+def loadImage(args: Namespace) -> NDArray[Shape["*,*"], UInt8]:
     """
     loadimage: load an image and convert it to b&w and white background
     """
@@ -50,27 +57,44 @@ def loadImage(args):
 
     return None
 
-def distance(A: (float,float),B: (float,float)):
+def distance(A: Tuple[float,float], B: Tuple[float,float]) -> float:
     """
-    Does Pythagoras
+    Pythagoras
     """
     # |Ax - Bx|^2 + |Ay - By|^2 = C^2
     # distance = √C^2
     return math.sqrt(abs(A[0] - B[0])**2 + abs(A[1] - B[1])**2)
 
-def boundingbox(bbox:dict[str,float], XY: (float,float)) -> dict[str,float]:
+# global boundingbox info
+_bbox = None
+
+def boundingbox(XY: Tuple[float,float]):
     """
     boundingbox: update bounding box
     """
-    if bbox is not None:
-        bbox["minX"] = XY[0] if XY[0] < bbox["minX"] else bbox["minX"]
-        bbox["minY"] = XY[1] if XY[1] < bbox["minY"] else bbox["minY"]
-        bbox["maxX"] = XY[0] if XY[0] > bbox["maxX"] else bbox["maxX"]
-        bbox["maxY"] = XY[1] if XY[1] > bbox["maxY"] else bbox["maxY"]
+    global _bbox
+    if _bbox is not None:
+        _bbox["minX"] = XY[0] if XY[0] < _bbox["minX"] else _bbox["minX"]
+        _bbox["minY"] = XY[1] if XY[1] < _bbox["minY"] else _bbox["minY"]
+        _bbox["maxX"] = XY[0] if XY[0] > _bbox["maxX"] else _bbox["maxX"]
+        _bbox["maxY"] = XY[1] if XY[1] > _bbox["maxY"] else _bbox["maxY"]
+    else:
+        _bbox = {'minX':XY[0],'minY':XY[1],'maxX':XY[0],'maxY':XY[1]}
 
-    return bbox
+def linear_power(pixel: UInt8, maxpower: int, invert: bool) -> int:
+    """
+    Linear conversion of pixel value to laser intensity
+    pixel:      int range [0-255]
+    maxpower:   machine maximum laser power (typically [0-1000])
+    invert:     true/false (when true 'black = white')
+    return:     laser intensity for this pixel
+    """
+    return round((1.0 - float(pixel/255)) * maxpower) if invert else round(float(pixel/255) * maxpower)
 
-def image2gcode(img, args) -> str:
+def image2gcode(img: NDArray[Shape["*,*"], UInt8], args: Namespace,
+                power: Callable[[UInt8,int,bool],int],
+                boundingbox: Callable[[Tuple[float,float]],None] = None,
+                transformation: Callable[[Tuple[float,float]],Tuple[float,float]] = None ) -> str:
     """
     image2gcode: convert image to gcode (each image pixel is converted to a gcode move of pixelsize length)
     """
@@ -80,7 +104,8 @@ def image2gcode(img, args) -> str:
     # speed:            laser head print speed
     # power:            maximum power of laser
 
-    invert_intensity = True		# black == white
+    # black == white
+    invert_intensity = True
 
     # set X/Y-axis precision to number of digits after
     XY_prec = len(str(args.pixelsize).split('.')[1])
@@ -116,7 +141,8 @@ def image2gcode(img, args) -> str:
     gcode += [f"G0X{X}Y{Y}"]
 
     # initiate boundingbox
-    bbox = {'minX':X,'minY':Y,'maxX':X,'maxY':Y}
+    #bbox = {'minX':X,'minY':Y,'maxX':X,'maxY':Y}
+    boundingbox((X,Y))
 
     # set write speed and G1 move mode
     # (note that this stays into effect until another G code is executed,
@@ -143,7 +169,7 @@ def image2gcode(img, args) -> str:
     # current location of laser head
     head = (X,Y)
 
-    # start print
+    # start image conversion
     for line in img:
 
         if not left2right:
@@ -162,7 +188,8 @@ def image2gcode(img, args) -> str:
 
         # draw this pixel line
         for count, pixel in enumerate(line):
-            laserpow = round((1.0 - float(pixel/255)) * args.maxpower) if invert_intensity else round(float(pixel/255) * args.maxpower)
+            #laserpow = round((1.0 - float(pixel/255)) * args.maxpower) if invert_intensity else round(float(pixel/255) * args.maxpower)
+            laserpow = power(pixel, args.maxpower, invert_intensity)
 
             if count == 0:
                 # delay emit first pixel (so all same power pixels can be emitted in one sweep)
@@ -201,7 +228,8 @@ def image2gcode(img, args) -> str:
                     gcode += [code]
 
                     # update boundingbox
-                    bbox = boundingbox(bbox, (X,Y))
+                    #bbox = boundingbox(bbox, (X,Y))
+                    boundingbox((X,Y))
 
                     # head at this location
                     head = (X,Y)
@@ -240,7 +268,7 @@ def image2gcode(img, args) -> str:
         left2right = not left2right
 
     # emit bounding box
-    gcode = [f';\n;    Boundingbox: (X{bbox["minX"]},Y{bbox["minY"]}):(X{bbox["maxX"]},Y{bbox["maxY"]})\n;\n'] + gcode
+    gcode = [f';\n;    Boundingbox: (X{_bbox["minX"]},Y{_bbox["minY"]}):(X{_bbox["maxX"]},Y{_bbox["maxY"]})\n;\n'] + gcode
 
     # laser off, fan off, program stop
     gcode += gcode_footer
@@ -318,7 +346,7 @@ def main() -> int:
           f' overscan {args.overscan}')
 
     # emit gcode for image
-    print(image2gcode(narr, args), file=args.gcode)
+    print(image2gcode(narr, args, power = linear_power, boundingbox = boundingbox), file=args.gcode)
 
     if args.validate:
         args.gcode.close()
