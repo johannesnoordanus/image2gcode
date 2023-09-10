@@ -2,7 +2,7 @@
 """
 image2gcode: convert an image to gcode.
 """
-__version__ = "2.6.3"
+__version__ = "2.7.0"
 
 import os
 import sys
@@ -10,7 +10,9 @@ import math
 import argparse
 from argparse import Namespace
 from datetime import datetime
+from collections import namedtuple
 from collections.abc import Callable
+from typing import Any
 from typing import Tuple
 
 from PIL import Image
@@ -25,6 +27,277 @@ try:
     from gcode2image import gcode2image
 except ImportError:
     GCODE2IMAGE = False
+
+from boundingbox import Boundingbox
+
+class Image2gcode:
+    """
+    Class Image2gcode handles the conversion of an image to gcode.
+    """
+
+    def __init__(self, power: Callable[[UInt8,int,bool],int] = None,
+                 transformation: Callable[[Tuple[float,float]],Tuple[float,float]] = None):
+
+        # init
+        self.bbox = Boundingbox()
+        self._power = power if power is not None else self.linear_power
+        self._transformation = transformation
+
+    def distance(self, A: Tuple[float,float], B: Tuple[float,float]) -> float:
+        """
+        Pythagoras
+        """
+        # |Ax - Bx|^2 + |Ay - By|^2 = C^2
+        # distance = √C^2
+        return math.sqrt(abs(A[0] - B[0])**2 + abs(A[1] - B[1])**2)
+
+    def linear_power(self, pixel: UInt8, maxpower: int, offset: int = 0, invert: bool = True) -> int:
+        """
+        Linear conversion of pixel value to laser intensity
+
+        :param pixel: int range [0-255]
+        :param maxpower: machine maximum laser power (typically [0-1000])
+        :param offset: int range [0-maxpower] (shift power range)
+        :param invert: true/false (default true, when true 'black = white')
+        :return: laser intensity for this pixel
+        """
+        return offset + round((1.0 - float(pixel/255)) * (maxpower - offset)) if invert else round(float(pixel/255) * (maxpower - offset))
+
+
+    def image2gcode(self, img: NDArray[Shape["*,*"], UInt8], args: dict[str, Any]) -> str:
+        """
+        :param img: image array (widthx,height), intensity values [0-255]
+        :param args: conversion settings (like pixelsize, speed, maxpower, ..)
+        :return: gcode for this img(age)
+
+        algorithm outline:
+            scan image left to right, shift one scan line down, then right to left
+                for each scan line,
+                    for each pixel on the scan line,
+                        convert pixel intensity to laser power,
+                        generate gcode for the current coordinates (X,Y) at this intensity
+                repeat
+
+        Note that the algorithm outline does not cover the subtleties.
+        In general, the laser machine head moves only when needed and does not always
+        follow the image scan order, empty (0 burn or noise pixels) are skipped which
+        alltogether generates the effect that only image objects within their contour
+        are 'printed'
+
+        detail:
+         emit condensed gcode:
+          - emit XY coordinates only when they change
+          - emit modal gcode (linear move G1/G0) minimally
+          - does not emit zero power (or below cutoff/noise) pixels
+
+         optimizations:
+          - draw pixels only when change of power
+          - minimal laser head moves: laser head has defered and sparse moves.
+            (XY locations are virtual, head does not always follow)
+          - moves at high speed (G0) over 10mm (default) or more zero pixels
+          - low burn levels (noise pixels) can be suppressed (default off)
+          - overscan image: set laserhead a few pixels before the first pixels of a scan line,
+            and move head a few pixels after the last pixels of a scan line (both directions)
+            default off
+            (this might reduce low burnrate pixels at the edges for some laser machines,
+            note that speed adaptive burn mode M4 should automatically take care of this.)
+        """
+
+        def XYdelta(XY: Tuple[float,float]) -> Tuple[float,float]:
+            """
+            This function does a transformation.
+            :param XY: point to transform
+            :return: transformation of XY
+            """
+            XYd = XY if self._transformation is None else self._transformation(XY)
+            return (round(XYd[0],XY_prec),round(XYd[1],XY_prec))
+
+        def handle_overscan_at_eol(lastnoise):
+            """
+            This functions is called at the end of a scan line.
+            It moves the laser head just after the last contour (point) of this line.
+            :param lastnoise: location of the last 'noise' point
+            :return: gcode to move the head to this location
+            """
+            nonlocal gcode
+            nonlocal head
+
+            # we are at the end of a scan line
+            if args["overscan"] and head[1] == Y and lastnoise is not None:
+                # we are past the (outer) contour of this image (that is: one or more points are drawn on
+                # this line and one or more zero power pixels are not drawn)
+                # we now add a few pixels to be drawn past this edge (nomally zero/noise pixels are skipped),
+                # to make the laser head moves a few pixels further in the same scan direction
+                if left2right:
+                    overscanpixels = min(round(head[0] + (args["overscan"] * args["pixelsize"]), XY_prec),
+                                         round(args["offset"][0] + (line.size * args["pixelsize"]), XY_prec))
+                else:
+                    overscanpixels = max(round(head[0] - (args["overscan"] * args["pixelsize"]), XY_prec),
+                                         round(args.offset[0], XY_prec))
+
+                # get points after transformation (if any)
+                overscandelta, Yd = XYdelta((overscanpixels,Y))
+                # emit overscan pixels
+                gcode += [f"X{overscandelta}Y{Yd}S0"]
+
+                # head at this location
+                head = (overscanpixels,Y)
+
+        def handle_overscan_at_begin_of_line(lastnoise) -> str:
+            """
+            This functions is called at the beginning of a scan line.
+            It moves the laser head just before the first contour (point) of this line.
+            :param lastnoise: location of the last 'noise' point
+            :return: gcode to move the head to this location
+            """
+            code = ''
+            # we are at the beginning of a scan line
+            if args["overscan"] and head[1] != Y:
+                # the laser head is still at aprevious line and is moved to this line, just a few
+                # pixels before the start of a contour of this image
+                if left2right:
+                    # go to next line and start overscan pixels earlier
+                    min_X = round(args["offset"][0], XY_prec)
+                    overscanpixels = round(lastnoise[0] - (args["overscan"] * args["pixelsize"]), XY_prec)
+                    overscanpixels = overscanpixels if overscanpixels > min_X else min_X
+                else:
+                    max_X = round(args["offset"][0] + (line.size * args["pixelsize"]), XY_prec)
+                    overscanpixels = round(lastnoise[0] + (args["overscan"] * args["pixelsize"]), XY_prec)
+                    overscanpixels = overscanpixels if overscanpixels < max_X else max_X
+
+                # get points after transformation (if any)
+                overscandelta, lastnoisedelta = XYdelta((overscanpixels,lastnoise[1]))
+                code = f"X{overscandelta}Y{lastnoisedelta}S0\n"
+            return code
+
+        def handle_lastnoise(lastnoise) -> str:
+            """
+            This functions is called to move the laser head to the correct location
+            before a point is emmitted.
+            :param lastnoise: location of the last 'noise' point
+            :return: gcode to move the head to this location
+            """
+            code = ""
+            if lastnoise:
+                # head is not at correct location, go there
+
+                # Apply affine transformation (if needed)
+                # (Note that an affine transformation does not necessarily preserve angles between
+                # lines or distances between points!)
+                XYlastnoise = XYdelta(lastnoise)
+                XYhead = XYdelta(head)
+
+                # move head to location just before a new point is emitted
+                # (note that 'noise' points are not emitted and the laser head has to
+                # catch up with the last noise point location, to be able to write a new pixel)
+                if args["speedmoves"] and (self.distance(XYhead,XYlastnoise) > args["speedmoves"]):
+                    # fast
+                    code = f"G0 X{XYlastnoise[0]}Y{XYlastnoise[1]}\nG1\n"
+                else:
+                    # normal speed
+                    code = handle_overscan_at_begin_of_line(lastnoise)
+                    code += f"X{XYlastnoise[0]}Y{XYlastnoise[1]}S0\n"
+
+                # update bounding box
+                self.bbox.update(XYlastnoise)
+            return code
+
+        # set X/Y-axis precision to number of digits after
+        XY_prec = len(str(args["pixelsize"]).split('.')[1])
+
+        # set printer start coordinates
+        X = round(args["offset"][0], XY_prec)
+        Y = round(args["offset"][1], XY_prec)
+
+        # get coordinates after transformation (if any)
+        Xd, Yd = XYdelta((X,Y))
+
+        # go to start
+        gcode = [f"G0X{Xd}Y{Yd}"]
+        # current location of laser head
+        head = (X,Y)
+
+        # initiate bbox
+        self.bbox.update((X,Y))
+
+        # set write speed and G1 move mode
+        # (note that this stays into effect until another G code is executed,
+        #  so we do not have to repeat this for all coordinates emitted below)
+        gcode += [f"G1F{args['speed']}"]
+
+        left2right = True
+
+        # start image conversion
+        for line in img:
+
+            if not left2right:
+                # reverse line when printing right to left
+                line = np.flip(line)
+
+            # add line terminator (makes this algorithm regular)
+            line = np.append(line,0)
+
+            # Note that (laser) drawing from a point to a point differs from setting a point (within an image):
+            #              0   1   2   3   4   5   6     <-- gcode drawing points
+            # one line:    |[0]|[1]|[2]|[3]|[4]|[5]|     <-- image pixels
+            #
+            # For example: drawing from X0 to X2 with value S10 corresponds to setting [0] = S10 and [1] = S10
+            # Note also that drawing form left to right differs subtly from the reverse
+
+            # draw this pixel line
+            for count, pixel in enumerate(line):
+                laserpow = self._power(pixel, args["maxpower"], args["poweroffset"])
+
+                if count == 0:
+                    # delay emit first pixel (so all same power pixels can be emitted in one sweep)
+                    prev_pow = laserpow
+                    # set last noise location on start of the line
+                    lastnoise = (X,Y)
+
+                # draw pixels when change of power
+                if laserpow != prev_pow or count == line.size-1:
+                    # skip all zero power points
+                    if prev_pow > args["noise"]:
+
+                        # check if head is at the right location, if not go there
+                        code = handle_lastnoise(lastnoise)
+
+                        # emit point
+                        if self._transformation is not None:
+                            Xd, Yd = XYdelta((X,Y))
+                            code += f"X{Xd}Y{Yd}S{prev_pow}"
+                            # update bbox
+                            self.bbox.update((Xd,Yd))
+                        else:
+                            code += f"X{X}S{prev_pow}"
+                            # update bbox
+                            self.bbox.update((X,Y))
+                        gcode += [code]
+
+                        # head at this location
+                        head = (X,Y)
+                        lastnoise = None
+                    else:
+                        # didn't move head to location, save it
+                        lastnoise = (X,Y)
+
+                    if count == line.size-1:
+                        # overscan this line (if we can)
+                        handle_overscan_at_eol(lastnoise)
+                        continue
+                    prev_pow = laserpow # if laserpow != prev_pow
+
+                # next point
+                X = round(X + (args["pixelsize"] if left2right else -args["pixelsize"]), XY_prec)
+
+            # next scan line (defer head movement)
+            Y = round(Y + args["pixelsize"], XY_prec)
+
+            # change print direction
+            left2right = not left2right
+
+        return '\n'.join(gcode)
+
 
 def loadImage(args: Namespace) -> NDArray[Shape["*,*"], UInt8]:
     """
@@ -57,224 +330,6 @@ def loadImage(args: Namespace) -> NDArray[Shape["*,*"], UInt8]:
 
     return None
 
-def distance(A: Tuple[float,float], B: Tuple[float,float]) -> float:
-    """
-    Pythagoras
-    """
-    # |Ax - Bx|^2 + |Ay - By|^2 = C^2
-    # distance = √C^2
-    return math.sqrt(abs(A[0] - B[0])**2 + abs(A[1] - B[1])**2)
-
-# global boundingbox info
-_bbox = None
-
-def boundingbox(XY: Tuple[float,float]):
-    """
-    boundingbox: update bounding box
-    """
-    global _bbox
-    if _bbox is not None:
-        _bbox["minX"] = XY[0] if XY[0] < _bbox["minX"] else _bbox["minX"]
-        _bbox["minY"] = XY[1] if XY[1] < _bbox["minY"] else _bbox["minY"]
-        _bbox["maxX"] = XY[0] if XY[0] > _bbox["maxX"] else _bbox["maxX"]
-        _bbox["maxY"] = XY[1] if XY[1] > _bbox["maxY"] else _bbox["maxY"]
-    else:
-        _bbox = {'minX':XY[0],'minY':XY[1],'maxX':XY[0],'maxY':XY[1]}
-
-def linear_power(pixel: UInt8, maxpower: int, invert: bool) -> int:
-    """
-    Linear conversion of pixel value to laser intensity
-    pixel:      int range [0-255]
-    maxpower:   machine maximum laser power (typically [0-1000])
-    invert:     true/false (when true 'black = white')
-    return:     laser intensity for this pixel
-    """
-    return round((1.0 - float(pixel/255)) * maxpower) if invert else round(float(pixel/255) * maxpower)
-
-def image2gcode(img: NDArray[Shape["*,*"], UInt8], args: Namespace,
-                power: Callable[[UInt8,int,bool],int],
-                boundingbox: Callable[[Tuple[float,float]],None] = None,
-                transformation: Callable[[Tuple[float,float]],Tuple[float,float]] = None ) -> str:
-    """
-    image2gcode: convert image to gcode (each image pixel is converted to a gcode move of pixelsize length)
-    """
-
-    # args settings:
-    # pixelsize:        pixel size in mm (all dimensions)
-    # speed:            laser head print speed
-    # power:            maximum power of laser
-
-    # black == white
-    invert_intensity = True
-
-    # set X/Y-axis precision to number of digits after
-    XY_prec = len(str(args.pixelsize).split('.')[1])
-
-    # on the safe side: laser stop, fan on, laser on while moving
-    gcode_header = ["M5","M8", 'M3' if args.constantburn else 'M4']
-    # laser off, fan off, program stop
-    gcode_footer = ["M5","M9","M2"]
-
-    # header comment
-    gcode = [f";    {os.path.basename(sys.argv[0])} {__version__} ({str(datetime.now()).split('.')[0]})\n"
-             f';    Area: {str(round(img.shape[1] * args.pixelsize,2))}mm X {str(round(img.shape[0] * args.pixelsize,2))}mm (XY)\n'
-             f';    arguments:\n'
-             f';      pixelsize: {str(args.pixelsize)}mm^2,\n'
-             f';      speed: {str(args.speed)}mm/min,\n'
-             f';      maxpower: {str(args.maxpower)},\n'
-             f";      speedmoves: {args.speedmoves},\n"
-             f";      noise level: {args.noise},\n"
-             f";      offset: {args.offset},\n"
-             f";      burn mode: {'M3' if args.constantburn else 'M4'},\n"
-             f';      overscan {args.overscan}\n']
-
-    # init gcode
-    gcode += ["G00 G17 G40 G21 G54","G90"]
-    # on the safe side: laser stop, fan on, laser on while moving only
-    gcode += gcode_header
-
-    # set printer start coordinates
-    X = round(args.offset[0], XY_prec)
-    Y = round(args.offset[1], XY_prec)
-
-    # go to start
-    gcode += [f"G0X{X}Y{Y}"]
-
-    # initiate boundingbox
-    #bbox = {'minX':X,'minY':Y,'maxX':X,'maxY':Y}
-    boundingbox((X,Y))
-
-    # set write speed and G1 move mode
-    # (note that this stays into effect until another G code is executed,
-    #  so we do not have to repeat this for all coordinates emitted below)
-    gcode += [f"G1F{args.speed}"]
-
-    # Print left to right, shift one scan line down, then right to left,
-    # one scanline down (repeat)
-    #
-    # Optimized gcode:
-    # - draw pixels in one go until change of power
-    # - emit X/Y coordinates only when they change
-    # - emit linear move 'G1/G0' code minimally
-    # - does not emit zero power (or below cutoff) pixels
-    #
-    # General optimizations:
-    # - laser head has defered and sparse moves.
-    #   (XY locations are virtual, head does not always follow)
-    # - moves at high speed (G0) over 10mm (default) or more zero pixels
-    # - low burn levels (noise pixels) can be suppressed (default off)
-    #
-    left2right = True
-
-    # current location of laser head
-    head = (X,Y)
-
-    # start image conversion
-    for line in img:
-
-        if not left2right:
-            # reverse line when printing right to left
-            line = np.flip(line)
-
-        # add line terminator (makes this algorithm regular)
-        line = np.append(line,0)
-
-        # Note that (laser) drawing from a point to a point differs from setting a point (within an image):
-        #              0   1   2   3   4   5   6     <-- gcode drawing points
-        # one line:    |[0]|[1]|[2]|[3]|[4]|[5]|     <-- image pixels
-        #
-        # For example: drawing from X0 to X2 with value S10 corresponds to setting [0] = S10 and [1] = S10
-        # Note also that drawing form left to right differs subtly from the reverse
-
-        # draw this pixel line
-        for count, pixel in enumerate(line):
-            #laserpow = round((1.0 - float(pixel/255)) * args.maxpower) if invert_intensity else round(float(pixel/255) * args.maxpower)
-            laserpow = power(pixel, args.maxpower, invert_intensity)
-
-            if count == 0:
-                # delay emit first pixel (so all same power pixels can be emitted in one sweep)
-                prev_pow = laserpow
-                # set last noise location on start of the line
-                lastnoiseloc = (X,Y)
-
-            # draw pixels until change of power
-            if laserpow != prev_pow or count == line.size-1:
-                # skip all zero power points
-                if prev_pow > args.noise:
-                    code = ""
-                    if lastnoiseloc:
-                        # head is not at correct location, go there
-                        if args.speedmoves and (distance(head,(X,Y)) > args.speedmoves):
-                            # fast
-                            code = f"G0 X{lastnoiseloc[0]}Y{lastnoiseloc[1]}\n"
-                            code += f"G1\n"
-                        else:
-                            # normal speed
-                            if args.overscan and head[1] != Y:
-                                if left2right:
-                                    # go to next line and start overscan pixels earlier
-                                    min_X = round(args.offset[0], XY_prec)
-                                    overscanpixels = round(lastnoiseloc[0] - (args.overscan * args.pixelsize), XY_prec)
-                                    overscanpixels = overscanpixels if overscanpixels > min_X else min_X
-                                else:
-                                    max_X = round(args.offset[0] + (line.size * args.pixelsize), XY_prec)
-                                    overscanpixels = round(lastnoiseloc[0] + (args.overscan * args.pixelsize), XY_prec)
-                                    overscanpixels = overscanpixels if overscanpixels < max_X else max_X
-                                code = f"X{overscanpixels}Y{lastnoiseloc[1]}S0\n"
-                            code += f"X{lastnoiseloc[0]}Y{lastnoiseloc[1]}S0\n"
-
-                    # emit point
-                    code += f"X{X}S{prev_pow}"
-                    gcode += [code]
-
-                    # update boundingbox
-                    #bbox = boundingbox(bbox, (X,Y))
-                    boundingbox((X,Y))
-
-                    # head at this location
-                    head = (X,Y)
-                    lastnoiseloc = None
-                else:
-                    # didn't move head to location, save it
-                    lastnoiseloc = (X,Y)
-
-                if count == line.size-1:
-                    # overscan this line (if we can)
-                    if args.overscan and head[1] == Y and lastnoiseloc is not None:
-                        # one or more points are drawn on this line, but one or more zero power pixels are not drawn
-                        if left2right:
-                            overscanpixels = min(round(head[0] + (args.overscan * args.pixelsize), XY_prec),
-                                                 round(args.offset[0] + (line.size * args.pixelsize), XY_prec))
-                        else:
-                            overscanpixels = max(round(head[0] - (args.overscan * args.pixelsize), XY_prec),
-                                                 round(args.offset[0], XY_prec))
-
-                        # emit overscan pixels
-                        code = f"X{overscanpixels}S0"
-                        gcode += [code]
-
-                        # head at this location
-                        head = (overscanpixels,Y)
-                    continue
-                prev_pow = laserpow # if laserpow != prev_pow
-
-            # next point
-            X = round(X + (args.pixelsize if left2right else -args.pixelsize), XY_prec)
-
-        # next scan line (defer head movement)
-        Y = round(Y + args.pixelsize, XY_prec)
-
-        # change print direction
-        left2right = not left2right
-
-    # emit bounding box
-    gcode = [f';\n;    Boundingbox: (X{_bbox["minX"]},Y{_bbox["minY"]}):(X{_bbox["maxX"]},Y{_bbox["maxY"]})\n;\n'] + gcode
-
-    # laser off, fan off, program stop
-    gcode += gcode_footer
-
-    return '\n'.join(gcode)
-
 def main() -> int:
     """
     main
@@ -283,6 +338,7 @@ def main() -> int:
     pixelsize_default = 0.1
     speed_default = 800
     power_default = 300
+    poweroffset_default = 0
     speedmoves_default = 10
     noise_default = 0
     overscan_default = 0
@@ -300,6 +356,8 @@ def main() -> int:
         type=int, help='draw speed in mm/min')
     parser.add_argument('--maxpower', default=power_default, metavar="<default:" +str(power_default)+ ">",
         type=int, help="maximum laser power while drawing (as a rule of thumb set to 1/3 of the maximum of a machine having a 5W laser)")
+    parser.add_argument('--poweroffset', default=poweroffset_default, metavar="<default:" +str(poweroffset_default)+ ">",
+        type=int, help="pixel intensity to laser power: shift power range [0-maxpower]")
     parser.add_argument('--size', default=None, nargs=2, metavar=('gcode-width', 'gcode-height'),
         type=float, help="target gcode width and height in mm (default: not set and determined by pixelsize and image source resolution)")
     parser.add_argument('--offset', default=None, nargs=2, metavar=('X-off', 'Y-off'),
@@ -334,19 +392,56 @@ def main() -> int:
         args.offset = (0.0, 0.0)
 
     # load and convert image to B&W
-    # flip image updown because Gcode and raster image coordinate system differ
+    # flip image updown because Gcode and raster image coordinate system differ in this respect
     narr = np.flipud(loadImage(args))
 
     if args.center:
         args.offset = (-round((narr.shape[1] * args.pixelsize)/2,1), -round((narr.shape[0] * args.pixelsize)/2,1))
 
-    print(f'Area: {str(round(narr.shape[1] * args.pixelsize,2))}mm X {str(round(narr.shape[0] * args.pixelsize,2))}mm (XY)\n'
-          f'    > pixelsize {args.pixelsize}mm^2, speed {args.speed}mm/min, maxpower {str(args.maxpower)},\n'
-          f"      speedmoves {args.speedmoves}, noise level {args.noise}, offset {args.offset}, burn mode {'M3' if args.constantburn else 'M4'},"
-          f' overscan {args.overscan}')
+    # get program parameters
+    params = ''
+    for k, v in args.__dict__.items():
+        if params != '':
+            params += f",\n"
+        if hasattr(v, 'name'):
+            params += f";      {k}: {os.path.basename(v.name)}"
+        else:
+            params += f";      {k}: {v}"
 
-    # emit gcode for image
-    print(image2gcode(narr, args, power = linear_power, boundingbox = boundingbox), file=args.gcode)
+    print(f"dict: {args.__dict__.items()}")
+    print(f"type args: {type(args.__dict__.items())}")
+    print(args.__dict__["pixelsize"])
+    print(type(args.__dict__["pixelsize"]))
+
+    # get print area
+    print_area = f'print area: {str(round(narr.shape[1] * args.pixelsize,2))}x{str(round(narr.shape[0] * args.pixelsize,2))} mm (XY)\n'
+
+    # show print area
+    print(f"{print_area}")
+
+    # on the safe side: laser stop, fan on, laser on while moving
+    gcode_header = "M5\n" + "M8\n" + "M3\n" if args.constantburn else "M4\n"
+    # laser off, fan off, program stop
+    gcode_footer = "M5\n" + "M9\n" + "M2\n"
+
+    # create image conversion object
+    convert = Image2gcode()
+    # get gcode for image
+    image_gc = convert.image2gcode(narr, args.__dict__)
+
+    # header comment
+    gcode = (f";    {os.path.basename(sys.argv[0])} {__version__} ({str(datetime.now()).split('.')[0]})\n"
+             f";    arguments:\n{params}\n;\n"
+             f";    {print_area}")
+
+    # get bounding box for this image
+    gcode += f";    {convert.bbox}\n;\n"
+
+    # init gcode
+    gcode += "\nG00 G17 G40 G21 G54\n" + "G90\n"
+
+    # emit it all
+    print(gcode + gcode_header + image_gc + gcode_footer, file=args.gcode)
 
     if args.validate:
         args.gcode.close()
