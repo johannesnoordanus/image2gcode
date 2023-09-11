@@ -20,7 +20,7 @@ dependencies = [
 requires-python = ">=3.7"
 
 [project.scripts]
-image2gcode = "image2gcode:main"
+image2gcode = "image2gcode.__main__:main"
 
 [project.urls]
 Home = "https://github.com/johannesnoordanus/image2gcode"

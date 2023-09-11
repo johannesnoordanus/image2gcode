@@ -62,10 +62,10 @@ The result file 'test.gc' contains highly optimized gcodes (the file is of minim
 ### Usage:
 ```
 > image2gcode --help
-usage: image2gcode_overscan.py [-h] [--showimage] [--pixelsize <default:0.1>] [--speed <default:800>] [--maxpower <default:300>]
-                               [--size gcode-width gcode-height] [--offset X-off Y-off] [--center] [--speedmoves <default:10>]
-                               [--noise <default:0>] [--overscan <default:0>] [--constantburn] [--validate] [-V]
-                               image [gcode]
+usage: testimage2gcode [-h] [--showimage] [--pixelsize <default:0.1>] [--speed <default:800>] [--maxpower <default:300>] [--poweroffset <default:0>]
+                       [--size gcode-width gcode-height] [--offset X-off Y-off] [--center] [--speedmoves <default:10>] [--noise <default:0>] [--overscan <default:0>]
+                       [--showoverscan] [--constantburn] [--validate] [-V]
+                       image [gcode]
 
 Convert an image to gcode for GRBL v1.1 compatible diode laser engravers,
  each image pixel is converted to a gcode move of pixelsize length.
@@ -83,6 +83,8 @@ options:
                         draw speed in mm/min
   --maxpower <default:300>
                         maximum laser power while drawing (as a rule of thumb set to 1/3 of the maximum of a machine having a 5W laser)
+  --poweroffset <default:0>
+                        pixel intensity to laser power: shift power range [0-maxpower]
   --size gcode-width gcode-height
                         target gcode width and height in mm (default: not set and determined by pixelsize and image source resolution)
   --offset X-off Y-off  laser drawing starts at offset in mm (default not set, --center cannot be set at the same time)
@@ -92,8 +94,8 @@ options:
   --noise <default:0>   noise power level, do not burn pixels below this power level
   --overscan <default:0>
                         overscan image lines to avoid incorrect power levels for pixels at left and right borders, number in pixels, default off
+  --showoverscan        show overscan pixels (note that this is visible and part of the gcode emitted!)
   --constantburn        select constant burn mode M3 (a bit more dangerous!), instead of dynamic burn mode M4
   --validate            validate gcode file, do inverse and show image result
   -V, --version         show version number and exit
-
 ```                        
