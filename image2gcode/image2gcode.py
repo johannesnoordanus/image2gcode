@@ -215,7 +215,7 @@ class Image2gcode:
         head = (X,Y)
 
         # initiate bbox
-        self.bbox.update((X,Y))
+        self.bbox.update((Xd,Yd))
 
         # set write speed and G1 move mode
         # (note that this stays into effect until another G code is executed,

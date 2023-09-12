@@ -2,7 +2,7 @@
 """
 Boundingbox in 2 dimensions.
 """
-
+import copy
 from collections import namedtuple
 
 # declare tuple types
@@ -20,8 +20,8 @@ class Boundingbox:
             self.update(Point(*point))
 
     def __repr__(self):
-        return (f"Boundingbox: (X{self._bbox.lowerleft.x},Y{self._bbox.lowerleft.y}:"
-                f"X{self._bbox.upperright.x},Y{self._bbox.upperright.y})")
+        return (f"Boundingbox: (X{round(self._bbox.lowerleft.x,2)},Y{round(self._bbox.lowerleft.y,2)}:"
+                f"X{round(self._bbox.upperright.x,2)},Y{round(self._bbox.upperright.y,2)})")
 
     def update(self, point: Point):
         """
@@ -37,7 +37,7 @@ class Boundingbox:
                                Point( point.x if point.x > self._bbox.upperright.x else self._bbox.upperright.x,
                                       point.y if point.y > self._bbox.upperright.y else self._bbox.upperright.y ) )
         else:
-            self._bbox = Bbox(lowerleft = point , upperright = point)
+            self._bbox = Bbox(lowerleft = copy.deepcopy(point), upperright = copy.deepcopy(point))
 
     def get(self) -> Bbox:
         """
