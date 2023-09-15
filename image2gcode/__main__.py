@@ -112,7 +112,7 @@ def main() -> int:
     if args.genimages:
         gen_images(size = (args.genimages[0], args.genimages[1]), showimage = args.showimage, write = False if args.genimages[2] == 0 else True)
         if args.genimages[2] == 0:
-            print("Note images ar generated, but not written to file (write option is set to false)!")
+            print("Note images are generated, but not written to file (write option is set to false)!")
         print("Generated calibration images: all other options are ignored (except --showimage), exit")
         sys.exit(1)
     elif args.image is None:

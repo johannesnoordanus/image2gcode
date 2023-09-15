@@ -20,6 +20,7 @@ If this is too cumbersome, use option --size (release 2.5.0 or above), also for 
 
 Some people noticed incorrect low burn levels at the edges of objects within an image, this can be remedied by using option '--overscan <nbr of pixels>'. This makes sure the laser head will continue for a few pixels on a line after the last non empty pixel, or start the head a few pixels before the first non empty pixel is written on a line.
 
+It is possible to calibrate your laser machine now: option ```--genimages pixel-width pixel-height write``` generates 11 calibration files that can be used as input for ```image2gcode``` to experiment with settings like ```--pixelsize``` and speed to get the right setup! For example use ```./runimage2gcode --showimage --genimages 200 200 0``` to generate test images of 200 by 200 pixels that showup in the viewer (but are not written to the file system).
 
 To summarize:
 
@@ -62,10 +63,10 @@ The result file 'test.gc' contains highly optimized gcodes (the file is of minim
 ### Usage:
 ```
 > image2gcode --help
-usage: testimage2gcode [-h] [--showimage] [--pixelsize <default:0.1>] [--speed <default:800>] [--maxpower <default:300>] [--poweroffset <default:0>]
-                       [--size gcode-width gcode-height] [--offset X-off Y-off] [--center] [--speedmoves <default:10>] [--noise <default:0>] [--overscan <default:0>]
-                       [--showoverscan] [--constantburn] [--validate] [-V]
-                       image [gcode]
+usage: runimage2gcode [-h] [--showimage] [--pixelsize <default:0.1>] [--speed <default:800>] [--maxpower <default:300>] [--poweroffset <default:0>]
+                      [--size gcode-width gcode-height] [--offset X-off Y-off] [--center] [--speedmoves <default:10>] [--noise <default:0>] [--overscan <default:0>]
+                      [--showoverscan] [--constantburn] [--validate] [--genimages pixel-width pixel-height write] [-V]
+                      [image] [gcode]
 
 Convert an image to gcode for GRBL v1.1 compatible diode laser engravers,
  each image pixel is converted to a gcode move of pixelsize length.
@@ -97,5 +98,7 @@ options:
   --showoverscan        show overscan pixels (note that this is visible and part of the gcode emitted!)
   --constantburn        select constant burn mode M3 (a bit more dangerous!), instead of dynamic burn mode M4
   --validate            validate gcode file, do inverse and show image result
+  --genimages pixel-width pixel-height write
+                        write (when set non zero) 11 calibration images of given pixel size to as much files
   -V, --version         show version number and exit
 ```                        
