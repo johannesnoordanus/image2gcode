@@ -270,7 +270,7 @@ def main():
     parser.add_argument('--random', action='store_true', default=False, help='show random pixels, squares, lines, depending on the option (--pattern cannot be set)')
     parser.add_argument('--pattern', action='store_true', default=False, help='show pattern of squares (future other image elements) (--random cannot be set)')
     parser.add_argument('--border', default=None, nargs=1, metavar=('width'),type=int, help='add an image border of given width' )
-    parser.add_argument('--genimages', action='store_true', default=False, help="write 11 test (calibration) images to 11 files")
+    parser.add_argument('--genimages', action='store_true', default=False, help="write 11 test (calibration) images to as much files")
     parser.add_argument('-V', '--version', action='version', version='%(prog)s ' + __version__, help="show version number and exit")
 
     args = parser.parse_args()
@@ -283,7 +283,7 @@ def main():
 
     if args.genimages:
         gen_images(size = (args.size[0], args.size[1]), showimage = args.showimage, write = False if args.testimage is None else True)
-        print("Generated calibration images: ignore all other options (except --showimage), exit")
+        print("Generated calibration images: all other options are ignored (except --showimage), exit")
         sys.exit(1)
 
     # create image array

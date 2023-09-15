@@ -22,6 +22,7 @@ from nptyping import NDArray, UInt8, Shape
 
 from image2gcode import __version__
 from image2gcode.image2gcode import Image2gcode
+from image2gcode.imagegen import gen_images
 
 GCODE2IMAGE = True
 try:
@@ -77,7 +78,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description='Convert an image to gcode for GRBL v1.1 compatible diode laser engravers,\n'
                                                  ' each image pixel is converted to a gcode move of pixelsize length.'
                                      , formatter_class=argparse.RawTextHelpFormatter )
-    parser.add_argument('image', type=argparse.FileType('r'), help='image file to be converted to gcode')
+    parser.add_argument('image', type=argparse.FileType('r'), nargs='?', help='image file to be converted to gcode')
     parser.add_argument('gcode', type=argparse.FileType('w'), nargs='?', default = sys.stdout, help='gcode output')
     parser.add_argument('--showimage', action='store_true', default=False, help='show b&w converted image' )
     parser.add_argument('--pixelsize', default=pixelsize_default, metavar="<default:" + str(pixelsize_default)+">",
@@ -102,9 +103,22 @@ def main() -> int:
     parser.add_argument('--showoverscan', action='store_true', default=False, help='show overscan pixels (note that this is visible and part of the gcode emitted!)' )
     parser.add_argument('--constantburn', action='store_true', default=False, help='select constant burn mode M3 (a bit more dangerous!), instead of dynamic burn mode M4')
     parser.add_argument('--validate', action='store_true', default=False, help='validate gcode file, do inverse and show image result' )
+    parser.add_argument('--genimages', default=None, nargs=3, metavar=('pixel-width', 'pixel-height', 'write'),
+        type=int, help="write (when set non zero) 11 calibration images of given pixel size to as much files")
     parser.add_argument('-V', '--version', action='version', version='%(prog)s ' + __version__, help="show version number and exit")
 
     args = parser.parse_args()
+
+    if args.genimages:
+        gen_images(size = (args.genimages[0], args.genimages[1]), showimage = args.showimage, write = False if args.genimages[2] == 0 else True)
+        if args.genimages[2] == 0:
+            print("Note images ar generated, but not written to file (write option is set to false)!")
+        print("Generated calibration images: all other options are ignored (except --showimage), exit")
+        sys.exit(1)
+    elif args.image is None:
+        #print(f"{os.path.basename(__file__)}, error: the following arguments are required: image")
+        print(f"{os.path.basename(sys.argv[0])}, error: the following arguments are required: image")
+        sys.exit(1)
 
     # check incompatible arguments
     if args.validate and (args.gcode.name == "<stdout>" or not GCODE2IMAGE):
@@ -180,6 +194,7 @@ def main() -> int:
 
             # show image
             img.show()
+
 
     return 0
 
