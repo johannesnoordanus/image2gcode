@@ -45,9 +45,7 @@ def square_pattern(img):
 
 def square_random(img):
     size = (img.shape[1],img.shape[0])
-    print(size)
     i = round(min(size[0], size[1]) * random.random()/4)
-    print(i)
     for x in range(0,i):
         newborder = (round((size[0] - 11) * random.random()),round((size[1] - 11) * random.random()))
         square(img, border = (newborder[0],newborder[1]),
@@ -241,6 +239,14 @@ def gen_images(size = (400,400), showimage = False, write = False):
     if showimage:
         pic.show()
 
+    img = create_image(size)
+    square_random(img)
+    pic = Image.fromarray(img)
+    if write:
+        pic.save(f"easter_{size[0]}x{size[1]}_egg.png")
+    if showimage:
+        pic.show()
+
 def main():
     """
     main
@@ -274,8 +280,6 @@ def main():
     parser.add_argument('-V', '--version', action='version', version='%(prog)s ' + __version__, help="show version number and exit")
 
     args = parser.parse_args()
-
-    print(args)
 
     if args.random and args.pattern:
         print("cannot set '--args.random' and '--args.pattern' at the same time: exit")
