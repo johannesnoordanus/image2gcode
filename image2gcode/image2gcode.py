@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 image2gcode: convert an image to gcode.
 """
