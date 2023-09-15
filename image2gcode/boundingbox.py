@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Boundingbox in 2 dimensions.
 """
