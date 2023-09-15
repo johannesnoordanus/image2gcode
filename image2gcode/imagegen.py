@@ -65,6 +65,23 @@ def grid(img, grid_spacing = 10, width = 2, color = 0):
     for i in range(round(size[1]%grid_spacing), size[1], round(size[1]/grid_spacing)):
         img[i-widthD:i+widthD,:] = color
 
+def raster_1_pixel(img, orientation = Orientation.HORIZONTAL.value, color = 0):
+    size = (img.shape[1],img.shape[0])
+    if orientation == Orientation.HORIZONTAL.value:
+        for i in range(0, size[0], 2):
+            img[:,i] = color
+
+    elif orientation == Orientation.VERTICAL.value:
+        for i in range(0, size[1], 2):
+            img[i,:] = color
+
+    elif orientation == Orientation.DIAGONAL.value:
+        size = min(size[0],size[1])
+        for i in range(0,size,3):
+            for p in range(i,size):
+                img[p,p-i] = color
+                img[p-i,p] = color
+
 def line(img, start = (0,0), end = (20,10), width = 2, color = 0):
     widthD = max(round(width/2),2)
     if abs(end[0] - start[0]):
@@ -138,40 +155,91 @@ def create_image(size = (400,400)) -> NDArray[Shape["*,*"], UInt8]:
     # create image array (hight,width), white backround and unsigned 8 bit elements
     return np.full([size[1], size[0]], 255, dtype=np.uint8)
 
-def gen_images(size = (400,400)):
+def gen_images(size = (400,400), showimage = False, write = False):
     """
     make test images
     """
+
     # create image array
     img = create_image(size)
     gradient(img, orientation = Orientation.HORIZONTAL.value)
     pic = Image.fromarray(img)
-    pic.save(f"calibration_gradient_{Orientation.HORIZONTAL.name}_{size[0]}x{size[1]}_pixels.png")
+    if write:
+        pic.save(f"gradient_{Orientation.HORIZONTAL.name.lower()}_{size[0]}x{size[1]}_pixels.png")
+    if showimage:
+        pic.show()
 
     img = create_image(size)
     gradient(img, orientation = Orientation.VERTICAL.value)
     pic = Image.fromarray(img)
-    pic.save(f"calibration_gradient_{Orientation.VERTICAL.name}_{size[0]}x{size[1]}_pixels.png")
+    if write:
+        pic.save(f"gradient_{Orientation.VERTICAL.name.lower()}_{size[0]}x{size[1]}_pixels.png")
+    if showimage:
+        pic.show()
 
     img = create_image(size)
     gradient(img, orientation = Orientation.DIAGONAL.value)
     pic = Image.fromarray(img)
-    pic.save(f"calibration_gradient_{Orientation.DIAGONAL.name}_{size[0]}x{size[1]}_pixels.png")
+    if write:
+        pic.save(f"gradient_{Orientation.DIAGONAL.name.lower()}_{size[0]}x{size[1]}_pixels.png")
+    if showimage:
+        pic.show()
 
     img = create_image(size)
     gradient(img, orientation = round(min(size[0],size[1])/10))
     pic = Image.fromarray(img)
-    pic.save(f"calibration_gradient_banding_{size[0]}x{size[1]}_pixels.png")
+    if write:
+        pic.save(f"gradient_banding_{size[0]}x{size[1]}_pixels.png")
+    if showimage:
+        pic.show()
+
+    img = create_image(size)
+    raster_1_pixel(img, orientation = Orientation.HORIZONTAL.value, color = 0)
+    pic = Image.fromarray(img)
+    if write:
+        pic.save(f"raster_1_pixel_{Orientation.HORIZONTAL.name.lower()}_{size[0]}x{size[1]}_pixels.png")
+    if showimage:
+        pic.show()
+
+    img = create_image(size)
+    raster_1_pixel(img, orientation = Orientation.VERTICAL.value, color = 0)
+    pic = Image.fromarray(img)
+    if write:
+        pic.save(f"raster_1_pixel_{Orientation.VERTICAL.name.lower()}_{size[0]}x{size[1]}_pixels.png")
+    if showimage:
+        pic.show()
+
+    img = create_image(size)
+    raster_1_pixel(img, orientation = Orientation.DIAGONAL.value, color = 0)
+    pic = Image.fromarray(img)
+    if write:
+        pic.save(f"raster_1_pixel_{Orientation.DIAGONAL.name.lower()}_{size[0]}x{size[1]}_pixels.png")
+    if showimage:
+        pic.show()
 
     img = create_image(size)
     square_pattern(img)
     pic = Image.fromarray(img)
-    pic.save(f"calibration_squarepattern_{size[0]}x{size[1]}_pixels.png")
+    if write:
+        pic.save(f"squarepattern_{size[0]}x{size[1]}_pixels.png")
+    if showimage:
+        pic.show()
 
     img = create_image(size)
     border(img, width = 4)
     pic = Image.fromarray(img)
-    pic.save(f"calibration_border_{size[0]}x{size[1]}_pixels.png")
+    if write:
+        pic.save(f"border_{size[0]}x{size[1]}_pixels.png")
+    if showimage:
+        pic.show()
+
+    img = create_image(size)
+    grid(img, grid_spacing = 10, width = 2, color = 0)
+    pic = Image.fromarray(img)
+    if write:
+        pic.save(f"grid_{size[0]}x{size[1]}_pixels.png")
+    if showimage:
+        pic.show()
 
 def main():
     """
@@ -183,6 +251,7 @@ def main():
     # Define command line argument interface
     parser = argparse.ArgumentParser(description='test image generator', formatter_class=argparse.RawTextHelpFormatter )
     parser.add_argument('testimage', type=argparse.FileType('w'),nargs='?', help='testimage output')
+    parser.add_argument('--showimage', action='store_true', default=False, help="show generated image(s)")
     parser.add_argument('--size', default=size_default, nargs=2, metavar=('pixel-width', 'pixel-height'),
         type=int, help="create a test image of this size (in pixels)")
     parser.add_argument('--square', default=None, nargs=6, metavar=('border-width', 'border-height', 'offset-X', 'offset-Y', 'line-width', 'color'),
@@ -193,25 +262,32 @@ def main():
         type=int, help="generate a line from start (XY) to end (XY) of given width and color")
     parser.add_argument('--grid', default=None, nargs=3, metavar=('spacing', 'line-width', 'color' ),
         type=int, help="generate a grid of lines of given size, color and spacing")
+    parser.add_argument('--raster', default=None, nargs=2, metavar=('orientation', 'color' ),
+        type=int, help="generate a 1 pixel raster of given orientation and color")
     parser.add_argument('--gradient', default=None, nargs=1, metavar=('orientation'),
         type=int, help=f"generate a gradient in horizontal({Orientation.HORIZONTAL.value}), vertical({Orientation.VERTICAL.value})"
                        f" or diagonal({Orientation.DIAGONAL.value}) direction or horizontal banding of (>{Orientation.DIAGONAL.value}) pixels wide")
     parser.add_argument('--random', action='store_true', default=False, help='show random pixels, squares, lines, depending on the option (--pattern cannot be set)')
     parser.add_argument('--pattern', action='store_true', default=False, help='show pattern of squares (future other image elements) (--random cannot be set)')
     parser.add_argument('--border', default=None, nargs=1, metavar=('width'),type=int, help='add an image border of given width' )
-    parser.add_argument('--genimages', action='store_true', default=False, help="write 6 test images to 6 files")
+    parser.add_argument('--genimages', action='store_true', default=False, help="write 11 test (calibration) images to 11 files")
     parser.add_argument('-V', '--version', action='version', version='%(prog)s ' + __version__, help="show version number and exit")
 
     args = parser.parse_args()
+
+    print(args)
 
     if args.random and args.pattern:
         print("cannot set '--args.random' and '--args.pattern' at the same time: exit")
         sys.exit(1)
 
-    if args.square is not None or args.pixel is not None or args.line is not None or \
-        args.grid is not None or args.gradient is not None or args.border is not None:
-        # create image array
-        img = create_image(args.size)
+    if args.genimages:
+        gen_images(size = (args.size[0], args.size[1]), showimage = args.showimage, write = False if args.testimage is None else True)
+        print("Generated calibration images: ignore all other options (except --showimage), exit")
+        sys.exit(1)
+
+    # create image array
+    img = create_image(args.size)
 
     if args.square:
         if args.random:
@@ -235,8 +311,11 @@ def main():
 
     if args.gradient:
         g = args.gradient
-        #gradient(img, orientation = g[0])
         gradient(img, orientation = g[0])
+
+    if args.raster:
+        r = args.raster
+        raster_1_pixel(img, orientation = r[0], color = r[1])
 
     if args.line:
         if args.random:
@@ -248,20 +327,16 @@ def main():
     if args.border:
         border(img, width = args.border[0])
 
-    if args.genimages:
-        gen_images(size = (args.size[0], args.size[1]))
+    # convert to image
+    pic = Image.fromarray(img)
 
-    if args.square is not None or args.pixel is not None or args.line is not None or \
-        args.grid is not None or args.gradient is not None or args.border is not None:
-        # convert to image
-        pic = Image.fromarray(img)
-
-        # show image
+    # show image
+    if args.showimage:
         pic.show()
 
-        # write image file
-        if args.testimage:
-            pic.save(args.testimage.name)
+    # write image file
+    if args.testimage:
+        pic.save(args.testimage.name)
 
 if __name__ == '__main__':
     sys.exit(main())
