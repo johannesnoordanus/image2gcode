@@ -48,13 +48,17 @@ Note: on Manjaro it is 'pipx' now!
 ```
 [somedir]> image2gcode --maxpower 300 --showimage --speedmoves 5 --noise 5 --validate test.png test.gc
 ```
-This command generates a gcode file 'test.gc' from an image 'test.png'. It burns pixels - .1mm^2 default - 
-at a maximum of 300 (which level is laser machine dependend).
+This command generates a gcode file 'test.gc' from an image 'test.png'.
+
+It burns pixels - .1mm^2 default - at a maximum of 300 (which level is laser machine dependend).
+
 Option *--showimages* starts an image viewer containing the original image in B&W and added white background 
 (when transparent) and option --validate shows the resulting image via an inverse function - gcode2image - 
 to be able to verify the gcode file. 
-Option *--speedmove 5* generates a maximum speed moves (G0) for non burn zones which (can) speed up engravings 
+
+Option *--speedmove 5* generates maximum speed moves (G0) for non burn zones which (can) speed up engravings 
 significantly. 
+
 Option *--noise 5* omits all pixels having burn values of 5 or less, this can remove noise (stray pixels) from some images. 
 
 The result file 'test.gc' contains highly optimized gcodes (the file is of minimal length) and gcodes run a minimal path.
