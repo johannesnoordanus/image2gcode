@@ -155,7 +155,7 @@ So images engraved by a powerfull laser will have more relief which makes it vis
 I found that calibrating a more powerfull laser did not give it a better white balance, and did not increase speed as much as I expected.
 The ideal white balance for my 5W laser is at *speed* 1200 and *maxpower* 300, while the 10W laser optimum is a *speed* of 1400 and *maxpower* of 300.
 
-Cutting depth for of the 10W laser seems to be a factor 2 though.
+Cutting depth of the 10W laser seems to be a factor 2 though.
 Also, contrast of the 5W laser is a lot better than that of the 10W laser. Images engraved by the 5W laser are laser sharp and smooth, while the 10W laser images are sharp, have reasonable smoothness and twice the cutting depth.
 
 **Wood**
