@@ -26,17 +26,23 @@ class Orientation(Enum):
     VERTICAL = 2
     DIAGONAL = 3
 
-def square(img, border = (350,350), offset = (25,25), width = 2, color = 0):
+def square(img, border = (350,350), offset = (25,25), width = 2, color = 0, filled = False):
     size = (img.shape[1],img.shape[0])
     widthD = max(round(width/2),2)
-    # make square border (black, pixel value 0)
-    for x in range(0 + offset[0],border[0] + offset[0]):
-        img[offset[1]-widthD:widthD + offset[1],x] = 0
-        img[border[1] + offset[1]-widthD:border[1] + offset[1] + widthD,x] = color
 
-    for y in range(0 + offset[1],border[1] + offset[1]):
-        img[y,0 + offset[0] - widthD:widthD + offset[0]] = 0
-        img[y,border[0] + offset[0]-widthD:border[0] + offset[0] + widthD] = color
+    if filled:
+        for x in range(offset[0],border[0] + offset[0] if (border[0] + offset[0]) <= size[0] else size[0]):
+            img[offset[1]:border[1] + offset[1] if (border[1] + offset[1]) <= size[1] else size[1],x] = color
+
+    else:
+        # make square border (black, pixel value 0)
+        for x in range(0 + offset[0],border[0] + offset[0]):
+            img[offset[1]-widthD:widthD + offset[1],x] = color
+            img[border[1] + offset[1]-widthD:border[1] + offset[1] + widthD,x] = color
+
+        for y in range(0 + offset[1],border[1] + offset[1]):
+            img[y,0 + offset[0] - widthD:widthD + offset[0]] = color
+            img[y,border[0] + offset[0]-widthD:border[0] + offset[0] + widthD] = color
 
 def square_pattern(img):
     size = min(img.shape[1],img.shape[0])
@@ -224,6 +230,14 @@ def gen_images(size = (400,400), showimage = False, write = False):
         pic.show()
 
     img = create_image(size)
+    square(img, filled = True)
+    pic = Image.fromarray(img)
+    if write:
+        pic.save(f"squarefilled_{size[0]}x{size[1]}_pixels.png")
+    if showimage:
+        pic.show()
+
+    img = create_image(size)
     border(img, width = 4)
     pic = Image.fromarray(img)
     if write:
@@ -256,12 +270,12 @@ def main():
 
     # Define command line argument interface
     parser = argparse.ArgumentParser(description='test image generator', formatter_class=argparse.RawTextHelpFormatter )
-    parser.add_argument('testimage', type=argparse.FileType('w'),nargs='?', help='testimage output')
+    parser.add_argument('image', type=argparse.FileType('w'),nargs='?', help='calibration image file name')
     parser.add_argument('--showimage', action='store_true', default=False, help="show generated image(s)")
     parser.add_argument('--size', default=size_default, nargs=2, metavar=('pixel-width', 'pixel-height'),
         type=int, help="create a test image of this size (in pixels)")
-    parser.add_argument('--square', default=None, nargs=6, metavar=('border-width', 'border-height', 'offset-X', 'offset-Y', 'line-width', 'color'),
-        type=int, help="generate a square of size (border widthxheight), color and linewidth at offset (X,Y)")
+    parser.add_argument('--square', default=None, nargs=7, metavar=('border-width', 'border-height', 'offset-X', 'offset-Y', 'line-width', 'color', 'filled'),
+        type=int, help="generate a (filed) square of size (border widthxheight), color and linewidth at offset (X,Y)")
     parser.add_argument('--pixel', default=None, nargs=4, metavar=('X', 'Y', 'size', 'color'),
         type=int, help="generate a pixel of given size and color at (X,Y)")
     parser.add_argument('--line', default=None, nargs=6, metavar=('startX', 'startY', 'endX', 'endY', 'line-width', 'color'),
@@ -276,7 +290,7 @@ def main():
     parser.add_argument('--random', action='store_true', default=False, help='show random pixels, squares, lines, depending on the option (--pattern cannot be set)')
     parser.add_argument('--pattern', action='store_true', default=False, help='show pattern of squares (future other image elements) (--random cannot be set)')
     parser.add_argument('--border', default=None, nargs=1, metavar=('width'),type=int, help='add an image border of given width' )
-    parser.add_argument('--genimages', action='store_true', default=False, help="write 11 test (calibration) images to as much files")
+    parser.add_argument('--genimages', action='store_true', default=False, help="write a set of test (calibration) images to the file system")
     parser.add_argument('-V', '--version', action='version', version='%(prog)s ' + __version__, help="show version number and exit")
 
     args = parser.parse_args()
@@ -286,8 +300,9 @@ def main():
         sys.exit(1)
 
     if args.genimages:
-        gen_images(size = (args.size[0], args.size[1]), showimage = args.showimage, write = False if args.testimage is None else True)
-        print("Generated calibration images: all other options are ignored (except --showimage), exit")
+        gen_images(size = (args.size[0], args.size[1]), showimage = args.showimage, write = False if args.showimage is None else True)
+        print("Generated calibration images: all other options are ignored " + (
+              "(option --showimage is set: images are not written to the file system)" if args.showimage else "(except --showimage)") + ", exit")
         sys.exit(1)
 
     # create image array
@@ -300,7 +315,7 @@ def main():
             square_pattern(img)
         else:
             s = args.square
-            square(img, border = (s[0],s[1]), offset = (s[2],s[3]), width = s[4], color = s[5])
+            square(img, border = (s[0],s[1]), offset = (s[2],s[3]), width = s[4], color = s[5], filled = True if s[6] else False)
 
     if args.grid:
         g = args.grid
@@ -339,8 +354,8 @@ def main():
         pic.show()
 
     # write image file
-    if args.testimage:
-        pic.save(args.testimage.name)
+    if args.image:
+        pic.save(args.image.name)
 
 if __name__ == '__main__':
     sys.exit(main())

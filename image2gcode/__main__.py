@@ -13,6 +13,15 @@ from collections.abc import Callable
 from typing import Any
 from typing import Tuple
 
+try:
+    import tomllib
+except ImportError:
+    try:
+        import toml as tomllib
+    except ImportError:
+        print("Import error: either 'toml' must be installed (pip install toml) or python version must be 3.11 or higher!")
+        sys.exit(1)
+
 from PIL import Image
 import numpy as np
 
@@ -29,6 +38,8 @@ try:
     from gcode2image import gcode2image
 except ImportError:
     GCODE2IMAGE = False
+
+config_file = os.path.expanduser(f"~/.config/{os.path.basename(sys.argv[0])}.toml")
 
 def loadImage(args: Namespace) -> NDArray[Shape["*,*"], UInt8]:
     """
@@ -66,13 +77,20 @@ def main() -> int:
     main
     """
     # defaults
-    pixelsize_default = 0.1
-    speed_default = 800
-    power_default = 300
-    poweroffset_default = 0
-    speedmoves_default = 10
-    noise_default = 0
-    overscan_default = 0
+    cfg = {
+        "pixelsize_default" : 0.1,
+        "speed_default" : 800,
+        "power_default" : 300,
+        "poweroffset_default" : 0,
+        "speedmoves_default" : 10,
+        "noise_default" : 0,
+        "overscan_default" : 0,
+    }
+
+    if os.path.exists(config_file):
+        print(f"read settings from: {config_file}")
+        with open(config_file, 'rb') as f:
+            cfg.update({k + '_default': v for k,v in tomllib.load(f).items()})
 
     # Define command line argument interface
     parser = argparse.ArgumentParser(description='Convert an image to gcode for GRBL v1.1 compatible diode laser engravers,\n'
@@ -81,30 +99,30 @@ def main() -> int:
     parser.add_argument('image', type=argparse.FileType('r'), nargs='?', help='image file to be converted to gcode')
     parser.add_argument('gcode', type=argparse.FileType('w'), nargs='?', default = sys.stdout, help='gcode output')
     parser.add_argument('--showimage', action='store_true', default=False, help='show b&w converted image' )
-    parser.add_argument('--pixelsize', default=pixelsize_default, metavar="<default:" + str(pixelsize_default)+">",
+    parser.add_argument('--pixelsize', default=cfg["pixelsize_default"], metavar="<default:" + str(cfg["pixelsize_default"])+">",
         type=float, help="pixel size in mm (XY-axis): each image pixel is drawn this size")
-    parser.add_argument('--speed', default=speed_default, metavar="<default:" + str(speed_default)+">",
+    parser.add_argument('--speed', default=cfg["speed_default"], metavar="<default:" + str(cfg["speed_default"])+">",
         type=int, help='draw speed in mm/min')
-    parser.add_argument('--maxpower', default=power_default, metavar="<default:" +str(power_default)+ ">",
+    parser.add_argument('--maxpower', default=cfg["power_default"], metavar="<default:" +str(cfg["power_default"])+ ">",
         type=int, help="maximum laser power while drawing (as a rule of thumb set to 1/3 of the maximum of a machine having a 5W laser)")
-    parser.add_argument('--poweroffset', default=poweroffset_default, metavar="<default:" +str(poweroffset_default)+ ">",
+    parser.add_argument('--poweroffset', default=cfg["poweroffset_default"], metavar="<default:" +str(cfg["poweroffset_default"])+ ">",
         type=int, help="pixel intensity to laser power: shift power range [0-maxpower]")
     parser.add_argument('--size', default=None, nargs=2, metavar=('gcode-width', 'gcode-height'),
         type=float, help="target gcode width and height in mm (default: not set and determined by pixelsize and image source resolution)")
     parser.add_argument('--offset', default=None, nargs=2, metavar=('X-off', 'Y-off'),
         type=float, help="laser drawing starts at offset in mm (default not set, --center cannot be set at the same time)")
     parser.add_argument('--center', action='store_true', default=False, help='set origin at the image center (--offset cannot be set at the same time)' )
-    parser.add_argument('--speedmoves', default=speedmoves_default, metavar="<default:" + str(speedmoves_default)+">",
+    parser.add_argument('--speedmoves', default=cfg["speedmoves_default"], metavar="<default:" + str(cfg["speedmoves_default"])+">",
         type=float, help="length of zero burn zones in mm (0 sets no speedmoves): issue speed (G0) moves when skipping space of given length (or more)")
-    parser.add_argument('--noise', default=noise_default, metavar="<default:" +str(noise_default)+ ">",
+    parser.add_argument('--noise', default=cfg["noise_default"], metavar="<default:" +str(cfg["noise_default"])+ ">",
         type=int, help="noise power level, do not burn pixels below this power level")
-    parser.add_argument('--overscan', default=overscan_default, metavar="<default:" +str(overscan_default)+ ">",
+    parser.add_argument('--overscan', default=cfg["overscan_default"], metavar="<default:" +str(cfg["overscan_default"])+ ">",
         type=int, help="overscan image lines to avoid incorrect power levels for pixels at left and right borders, number in pixels, default off")
     parser.add_argument('--showoverscan', action='store_true', default=False, help='show overscan pixels (note that this is visible and part of the gcode emitted!)' )
     parser.add_argument('--constantburn', action='store_true', default=False, help='select constant burn mode M3 (a bit more dangerous!), instead of dynamic burn mode M4')
     parser.add_argument('--validate', action='store_true', default=False, help='validate gcode file, do inverse and show image result' )
     parser.add_argument('--genimages', default=None, nargs=3, metavar=('pixel-width', 'pixel-height', 'write'),
-        type=int, help="write (when set non zero) 11 calibration images of given pixel size to as much files")
+        type=int, help="write (when set non zero) a set of test (calibration) images to the file system")
     parser.add_argument('-V', '--version', action='version', version='%(prog)s ' + __version__, help="show version number and exit")
 
     args = parser.parse_args()
@@ -116,7 +134,6 @@ def main() -> int:
         print("Generated calibration images: all other options are ignored (except --showimage), exit")
         sys.exit(1)
     elif args.image is None:
-        #print(f"{os.path.basename(__file__)}, error: the following arguments are required: image")
         print(f"{os.path.basename(sys.argv[0])}, error: the following arguments are required: image")
         sys.exit(1)
 
@@ -181,6 +198,7 @@ def main() -> int:
     gcode += "\nG00 G17 G40 G21 G54\n" + "G90\n"
 
     # emit it all
+    print(f"write file {args.gcode.name}")
     print(gcode + gcode_header + image_gc + gcode_footer, file=args.gcode)
 
     if args.validate:
