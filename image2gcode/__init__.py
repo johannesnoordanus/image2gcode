@@ -1,4 +1,4 @@
 """
 image2gcode: convert an image to gcode.
 """
-__version__ = "2.9.1"
+__version__ = "2.9.2"

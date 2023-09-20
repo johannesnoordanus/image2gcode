@@ -20,7 +20,7 @@ If this is too cumbersome, use option --size (release 2.5.0 or above), also for 
 
 Some people noticed incorrect low burn levels at the edges of objects within an image, this can be remedied by using option '--overscan <nbr of pixels>'. This makes sure the laser head will continue for a few pixels on a line after the last non empty pixel, or start the head a few pixels before the first non empty pixel is written on a line.
 
-It is possible to calibrate your laser machine now: option ```--genimages pixel-width pixel-height write``` generates a set calibration files that can be used as input for ```image2gcode``` to experiment with settings like ```--pixelsize```, ```--speed and ```--maxpower``` to get the right setup! For example use ```./runimage2gcode --showimage --genimages 200 200 0``` to generate test images of 200 by 200 pixels that show up in the viewer (but are not written to the file system). See chapter *calibrate* below.
+It is possible to calibrate your laser machine now: option ```--genimages pixel-width pixel-height write``` generates a set calibration files that can be used as input for ```image2gcode``` to experiment with settings like ```--pixelsize```, ```--speed and ```--maxpower``` to get the right setup! For example use ```image2gcode --showimage --genimages 200 200 0``` to generate test images of 200 by 200 pixels that show up in the viewer (but are not written to the file system). See chapter *calibrate* below.
 
 To summarize:
 
@@ -63,7 +63,7 @@ The result file 'test.gc' contains highly optimized gcodes (the file is of minim
 See notes below.
 ```
 > image2gcode --help
-usage: runimage2gcode [-h] [--showimage] [--pixelsize <default:0.1>] [--speed <default:800>] [--maxpower <default:300>] [--poweroffset <default:0>]
+usage: image2gcode [-h] [--showimage] [--pixelsize <default:0.1>] [--speed <default:800>] [--maxpower <default:300>] [--poweroffset <default:0>]
                       [--size gcode-width gcode-height] [--offset X-off Y-off] [--center] [--speedmoves <default:10>] [--noise <default:0>] [--overscan <default:0>]
                       [--showoverscan] [--constantburn] [--validate] [--genimages pixel-width pixel-height write] [-V]
                       [image] [gcode]
@@ -102,7 +102,7 @@ options:
                         write (when set non zero) 11 calibration images of given pixel size to as much files
   -V, --version         show version number and exit
 ```
-You can also store those settings in ~/.config/svg2gcode.toml, eg:
+You can also store those settings in ~/.config/image2gcode.toml, eg:
 ```
 pixelsize = 0.1
 xmaxtravel = 400
@@ -115,7 +115,7 @@ It can be used with any parameter which takes a value, and alows to persist your
 ### How to calibrate:
 Use a piece of wood that is smooth (sanded) and has a light color tone, a piece of light oak will do fine.  
 
-#### Determine pixelsize first
+**Determine pixelsize first**
 Each laser machine has a specific beam diameter (width) that can be used as the minimum pixelsize.   
 A small width has to be added to prevent pixel overlap when burned. For example a laser having a beam width of 0.08mm should have a pixelsize setting of 0.1mm.
 Use calibration files ```raster_1_pixel_horizontal/vertical``` and ```squarefilled``` to find out the right pixelsize.
@@ -132,7 +132,7 @@ So for example on a machine with a maximum laser power setting of 1000 and a las
 ```
 One strategy is to start at twice the minimum pixel size and make it smaller until the pixels 'fuse'.
 
-#### White balance
+**White balance**
 When the pixelsize is determined - say 0.1mm - calibrate the white balance by varying head speed and maximum laser power, using this pixelsize.
 Use calibration files ```gradient_diagonal``` and ```gradient_banding``` for that:
 ```
@@ -146,7 +146,7 @@ use a *maxpower* setting of 256 or more (*maxpower* of more than 256 increase th
 One strategy is to start at a low speed setting, if the image is mostly black, use less power untill you see at least some 'banding' or a bit of gray.
 From this setting increase speed untill the white balance is perfect.
 Note that too much speed will make the pixels less defined, meaning they smear out and the image will have less contrast and will lose its sharpness.
-#### Cutting depth
+**Cutting depth**
 A more powerful laser - say 10W instead of 5W per 0.1mm^2 - will increase the cutting depth, but not nesessarly the blackness of a pixel.
 So images engraved by a powerfull laser will have more relief which makes it visible at a wider angle. 
 I found that calibrating a more powerfull laser did not give it a better white balance, and did not increase speed as much as I expected.
@@ -154,7 +154,7 @@ The ideal white balance for my 5W laser is at *speed* 1200 and *maxpower* 300, w
 
 Cutting depth for of the 10W laser seems to be a factor 2 though.
 Also, contrast of the 5W laser is a lot better than that of the 10W laser. Images engraved by the 5W laser are laser sharp and smooth, while the 10W laser images are sharp, have reasonable smoothness and twice the cutting depth.
-#### Wood
+**Wood**
 Obviously wood hardness determines the cutting depth (relief) of the engraving and a dark color reduces the contrast of the image.
 Note also that the white balance of an engraving is possibly shifted for different types of wood.
 
