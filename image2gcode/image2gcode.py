@@ -43,7 +43,8 @@ class Image2gcode:
         # distance = √C^2
         return math.sqrt(abs(A[0] - B[0])**2 + abs(A[1] - B[1])**2)
 
-    def linear_power(self, pixel: UInt8, maxpower: int, offset: int = 0, invert: bool = True) -> int:
+    @staticmethod
+    def linear_power(pixel: UInt8, maxpower: int, offset: int = 0, invert: bool = True) -> int:
         """
         Linear conversion of pixel value to laser intensity
 

@@ -205,7 +205,7 @@ def main() -> int:
         args.gcode.close()
         with open(args.gcode.name, "r") as fgcode:
             # flip to raster image coordinate system
-            img = np.flipud(gcode2image(Namespace(gcode = fgcode, resolution = args.pixelsize, showG0 = False, showorigin = True, grid = True)))
+            img = np.flipud(gcode2image(Namespace(gcode = fgcode, resolution = args.pixelsize, showG0 = False, showorigin = True, grid = True, maxintensity = args.maxpower)))
 
             # convert to image
             img = Image.fromarray(img)
