@@ -22,6 +22,8 @@ Some people noticed incorrect low burn levels at the edges of objects within an 
 
 It is possible to calibrate your laser machine now: option ```--genimages pixel-width pixel-height write``` generates a set calibration files that can be used as input for ```image2gcode``` to experiment with settings like ```--pixelsize```, ```--speed and ```--maxpower``` to get the right setup! For example use ```image2gcode --showimage --genimages 200 200 0``` to generate test images of 200 by 200 pixels that show up in the viewer (but are not written to the file system). See chapter *calibrate* below.
 
+Please consider supporting me, so I can make this application better and add new functionality to it: <http://paypal.me/johannesnoordanus/5,00>
+
 To summarize:
 
 Optimized gcode
