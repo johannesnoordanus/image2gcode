@@ -63,6 +63,12 @@ class Boundingbox:
         return ( point.x >= self._bbox.lowerleft.x and point.y >= self._bbox.lowerleft.y
                  and point.x <= self._bbox.upperright.x and point.y <= self._bbox.upperright.y )
 
+    def size(self) -> float:
+        """
+        get bounding box size
+        """
+        return (self._bbox.upperright.x - self._bbox.lowerleft.x) * (self._bbox.upperright.y - self._bbox.lowerleft.y)
+
 if __name__ == '__main__':
     p = Point(0,0)
     print(f"type: {type(p)}")
