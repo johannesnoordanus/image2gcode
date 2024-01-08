@@ -27,7 +27,7 @@ class Image2gcode:
     Class Image2gcode handles the conversion of an image to gcode.
     """
 
-    def __init__(self, power: Callable[[UInt8,int,bool],int] = None,
+    def __init__(self, power: Callable[[UInt8,int,int,bool],int] = None,
                  transformation: Callable[[Tuple[float,float]],Tuple[float,float]] = None):
 
         # init
@@ -243,7 +243,7 @@ class Image2gcode:
 
             # draw this pixel line
             for count, pixel in enumerate(line):
-                laserpow = self._power(pixel, args["maxpower"], args["poweroffset"])
+                laserpow = self._power(pixel, args["maxpower"], args["poweroffset"], not args["noinvert"])
 
                 if count == 0:
                     # delay emit first pixel (so all same power pixels can be emitted in one sweep)

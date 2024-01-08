@@ -92,6 +92,7 @@ options:
                         maximum laser power while drawing (as a rule of thumb set to 1/3 of the maximum of a machine having a 5W laser)
   --poweroffset <default:0>
                         pixel intensity to laser power: shift power range [0-maxpower]
+  --noinvert            do not invert the image
   --size gcode-width gcode-height
                         target gcode width and height in mm (default: not set and determined by pixelsize and image source resolution)
   --offset X-off Y-off  laser drawing starts at offset in mm (default not set, --center cannot be set at the same time)

@@ -107,6 +107,7 @@ def main() -> int:
         type=int, help="maximum laser power while drawing (as a rule of thumb set to 1/3 of the maximum of a machine having a 5W laser)")
     parser.add_argument('--poweroffset', default=cfg["poweroffset_default"], metavar="<default:" +str(cfg["poweroffset_default"])+ ">",
         type=int, help="pixel intensity to laser power: shift power range [0-maxpower]")
+    parser.add_argument('--noinvert', action='store_true', default=False, help='do not invert the image' )
     parser.add_argument('--size', default=None, nargs=2, metavar=('gcode-width', 'gcode-height'),
         type=float, help="target gcode width and height in mm (default: not set and determined by pixelsize and image source resolution)")
     parser.add_argument('--offset', default=None, nargs=2, metavar=('X-off', 'Y-off'),
