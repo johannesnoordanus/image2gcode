@@ -136,6 +136,7 @@ def main() -> int:
         sys.exit(1)
     elif args.image is None:
         print(f"{os.path.basename(sys.argv[0])}, error: the following arguments are required: image")
+        parser.print_usage(sys.stderr)
         sys.exit(1)
 
     # check incompatible arguments
