@@ -85,6 +85,8 @@ def main() -> int:
         "speedmoves_default" : 10,
         "noise_default" : 0,
         "overscan_default" : 0,
+        "invert_default" : True,
+        "constantburn_default" : True,
     }
 
     if os.path.exists(config_file):
@@ -107,7 +109,8 @@ def main() -> int:
         type=int, help="maximum laser power while drawing (as a rule of thumb set to 1/3 of the maximum of a machine having a 5W laser)")
     parser.add_argument('--poweroffset', default=cfg["poweroffset_default"], metavar="<default:" +str(cfg["poweroffset_default"])+ ">",
         type=int, help="pixel intensity to laser power: shift power range [0-maxpower]")
-    parser.add_argument('--noinvert', action='store_true', default=False, help='do not invert the image' )
+    # parser.add_argument('--invert', action='store_true', default=True, help='when true invert image pixels (default)' )
+    parser.add_argument('--invert', action=argparse.BooleanOptionalAction, default=cfg["invert_default"], help='default invert image pixels')
     parser.add_argument('--size', default=None, nargs=2, metavar=('gcode-width', 'gcode-height'),
         type=float, help="target gcode width and height in mm (default: not set and determined by pixelsize and image source resolution)")
     parser.add_argument('--offset', default=None, nargs=2, metavar=('X-off', 'Y-off'),
@@ -120,7 +123,7 @@ def main() -> int:
     parser.add_argument('--overscan', default=cfg["overscan_default"], metavar="<default:" +str(cfg["overscan_default"])+ ">",
         type=int, help="overscan image lines to avoid incorrect power levels for pixels at left and right borders, number in pixels, default off")
     parser.add_argument('--showoverscan', action='store_true', default=False, help='show overscan pixels (note that this is visible and part of the gcode emitted!)' )
-    parser.add_argument('--constantburn', action='store_true', default=False, help='select constant burn mode M3 (a bit more dangerous!), instead of dynamic burn mode M4')
+    parser.add_argument('--constantburn', action=argparse.BooleanOptionalAction, default=cfg["constantburn_default"], help='default constant burn mode (M3)')
     parser.add_argument('--validate', action='store_true', default=False, help='validate gcode file, do inverse and show image result' )
     parser.add_argument('--genimages', default=None, nargs=3, metavar=('pixel-width', 'pixel-height', 'write'),
         type=int, help="write (when set non zero) a set of test (calibration) images to the file system")

@@ -51,7 +51,7 @@ class Image2gcode:
         :param pixel: int range [0-255]
         :param maxpower: machine maximum laser power (typically [0-1000])
         :param offset: int range [0-maxpower] (shift power range)
-        :param invert: true/false (default true, when true 'black = white')
+        :param invert: true/false (default true, when true 'black == white')
         :return: laser intensity for this pixel
         """
         return offset + round((1.0 - float(pixel/255)) * (maxpower - offset)) if invert else round(float(pixel/255) * (maxpower - offset))
@@ -243,7 +243,7 @@ class Image2gcode:
 
             # draw this pixel line
             for count, pixel in enumerate(line):
-                laserpow = self._power(pixel, args["maxpower"], args["poweroffset"], not args["noinvert"])
+                laserpow = self._power(pixel, args["maxpower"], args["poweroffset"], args["invert"])
 
                 if count == 0:
                     # delay emit first pixel (so all same power pixels can be emitted in one sweep)
