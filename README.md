@@ -14,6 +14,7 @@ It is possible to validate the gcode produced in one go: its size, placement and
 
 Note that to get great engravings it is important to use source images that have a high contrast ratio, because burnlevels have less intensity range. To get an engraving the right size, make sure images have enough pixels.
 For example if your machines laser width is 0.08mm I would recomment using a pixel size of 0.1mm; an engraving of 50x65 mm^2 (*width*x*height*) will need the source image resolution to be 500x650 pixels (*width*x*height*) in this case.
+
 It is also possible to set the DPI of an image to be exported from Inkscape (for example) and so get the right resolution for your laser machine. In this case the image to be exported should have a DPI setting of 254 (one inch is 25.4mm/0.1 = 254), note the image size when you do the export, because that will be exacly what you get on the laser machine!
 
 If this is too cumbersome, use option --size (release 2.5.0 or above), also for conveniance, to get the origin at the center, set --center. Note that --size will make a conversion of the source image.
@@ -68,11 +69,11 @@ The result file 'test.gc' contains highly optimized gcodes (the file is of minim
 ### Usage:
 See notes below.
 ```
-> image2gcode --help
-usage: image2gcode [-h] [--showimage] [--pixelsize <default:0.1>] [--speed <default:800>] [--maxpower <default:300>] [--poweroffset <default:0>]
-                      [--size gcode-width gcode-height] [--offset X-off Y-off] [--center] [--speedmoves <default:10>] [--noise <default:0>] [--overscan <default:0>]
-                      [--showoverscan] [--constantburn] [--validate] [--genimages pixel-width pixel-height write] [-V]
-                      [image] [gcode]
+image2gcode --help
+usage: image2gcode [-h] [--showimage] [--pixelsize <default:0.1>] [--speed <default:1200>] [--maxpower <default:300>] [--poweroffset <default:0>] [--invert | --no-invert]
+                   [--size gcode-width gcode-height] [--offset X-off Y-off] [--center] [--speedmoves <default:10>] [--noise <default:0>] [--overscan <default:0>]
+                   [--showoverscan] [--constantburn | --no-constantburn] [--validate] [--genimages pixel-width pixel-height write] [-V]
+                   [image] [gcode]
 
 Convert an image to gcode for GRBL v1.1 compatible diode laser engravers,
  each image pixel is converted to a gcode move of pixelsize length.
@@ -86,13 +87,14 @@ options:
   --showimage           show b&w converted image
   --pixelsize <default:0.1>
                         pixel size in mm (XY-axis): each image pixel is drawn this size
-  --speed <default:800>
+  --speed <default:1200>
                         draw speed in mm/min
   --maxpower <default:300>
                         maximum laser power while drawing (as a rule of thumb set to 1/3 of the maximum of a machine having a 5W laser)
   --poweroffset <default:0>
                         pixel intensity to laser power: shift power range [0-maxpower]
-  --noinvert            do not invert the image
+  --invert, --no-invert
+                        default invert image pixels
   --size gcode-width gcode-height
                         target gcode width and height in mm (default: not set and determined by pixelsize and image source resolution)
   --offset X-off Y-off  laser drawing starts at offset in mm (default not set, --center cannot be set at the same time)
@@ -103,10 +105,11 @@ options:
   --overscan <default:0>
                         overscan image lines to avoid incorrect power levels for pixels at left and right borders, number in pixels, default off
   --showoverscan        show overscan pixels (note that this is visible and part of the gcode emitted!)
-  --constantburn        select constant burn mode M3 (a bit more dangerous!), instead of dynamic burn mode M4
+  --constantburn, --no-constantburn
+                        default constant burn mode (M3)
   --validate            validate gcode file, do inverse and show image result
   --genimages pixel-width pixel-height write
-                        write (when set non zero) 11 calibration images of given pixel size to as much files
+                        write (when set non zero) a set of test (calibration) images to the file system
   -V, --version         show version number and exit
 ```
 You can also store those settings in ~/.config/image2gcode.toml, eg:
@@ -165,8 +168,11 @@ The ideal white balance for my 5W laser is at *speed* 1200 and *maxpower* 300, w
 Cutting depth of the 10W laser seems to be a factor 2 though.
 Also, contrast of the 5W laser is a lot better than that of the 10W laser. Images engraved by the 5W laser are laser sharp and smooth, while the 10W laser images are sharp, have reasonable smoothness and twice the cutting depth.
 
+**Burn mode M3/M4**
+
+Default *image2gcode* uses constant burn mode *M3* (version 2.9.10 and later). This can be overruled by setting option *--no-constantburn* which selects burn mode *M4*. Mode *M4* is not suitable for engravings because it automatically compensates (laser)power for speed. This conflicts with the specific gcode settings given by *image2gcode* for each pixel. In fact some experiments show that *M4* causes loss of quality and image deterioration when speed is increased. On white oak images had too much black and grey which did not go away for substantially higher speed. When switched back to constant burn (*M3*) mode, the same high speed gave excellent images having a sepia (licht yellow brown) color tone.
+
 **Wood**
 
 Obviously wood hardness determines the cutting depth (relief) of the engraving and a dark color reduces the contrast of the image.
 Note also that the white balance of an engraving is possibly shifted for different types of wood.
-
