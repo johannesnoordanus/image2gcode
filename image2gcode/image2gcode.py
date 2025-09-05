@@ -222,6 +222,8 @@ class Image2gcode:
         #  so we do not have to repeat this for all coordinates emitted below)
         gcode += [f"G1F{args['speed']}"]
 
+        # Determine scan direction
+        onedirectionscan = args.get("onedirectionscan", False)
         left2right = True
 
         # start image conversion
@@ -290,7 +292,13 @@ class Image2gcode:
             # next scan line (defer head movement)
             Y = round(Y + args["pixelsize"], XY_prec)
 
-            # change print direction
-            left2right = not left2right
+
+            # If onedirectionscan is True, always scan left to right
+            # Otherwise, alternate direction
+            if onedirectionscan:
+                # Go to line start & do not switch scan direction
+                X = round(args["offset"][0], XY_prec)
+            else:
+                left2right = not left2right
 
         return '\n'.join(gcode)
