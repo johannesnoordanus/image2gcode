@@ -87,6 +87,7 @@ def main() -> int:
         "overscan_default" : 0,
         "invert_default" : True,
         "constantburn_default" : True,
+        "onedirectionscan_default" : False,
     }
 
     if os.path.exists(config_file):
@@ -111,6 +112,7 @@ def main() -> int:
         type=int, help="pixel intensity to laser power: shift power range [0-maxpower]")
     # parser.add_argument('--invert', action='store_true', default=True, help='when true invert image pixels (default)' )
     parser.add_argument('--invert', action=argparse.BooleanOptionalAction, default=cfg["invert_default"], help='default invert image pixels')
+    parser.add_argument('--onedirectionscan', action=argparse.BooleanOptionalAction, default=cfg["onedirectionscan_default"], help='scan in one direction only. Laser is turned on only when moving left to right. (default: off, scan in both directions)')
     parser.add_argument('--size', default=None, nargs=2, metavar=('gcode-width', 'gcode-height'),
         type=float, help="target gcode width and height in mm (default: not set and determined by pixelsize and image source resolution)")
     parser.add_argument('--offset', default=None, nargs=2, metavar=('X-off', 'Y-off'),

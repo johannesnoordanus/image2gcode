@@ -21,6 +21,8 @@ If this is too cumbersome, use option --size (release 2.5.0 or above), also for 
 
 Some people noticed incorrect low burn levels at the edges of objects within an image, this can be remedied by using option '--overscan <nbr of pixels>'. This makes sure the laser head will continue for a few pixels on a line after the last non empty pixel, or start the head a few pixels before the first non empty pixel is written on a line.
 
+Some machines will have better engraving results if laser is enabled when moving in one direction. Use '--onedirectionscan' for that. This option will produce gcode where laser is enabled only when moving left to right. Somewhat slower, but may have better engraving result.
+
 It is possible to calibrate your laser machine now: option ```--genimages pixel-width pixel-height write``` generates a set calibration files that can be used as input for ```image2gcode``` to experiment with settings like ```--pixelsize```, ```--speed``` and ```--maxpower``` to get the right setup! For example use ```image2gcode --showimage --genimages 200 200 0``` to generate test images of 200 by 200 pixels that show up in the viewer (but are not written to the file system). See chapter *calibrate* below.
 
 Please consider supporting me, so I can make this application better and add new functionality to it: <http://paypal.me/johannesnoordanus/5,00>
@@ -71,6 +73,7 @@ See notes below.
 ```
 image2gcode --help
 usage: image2gcode [-h] [--showimage] [--pixelsize <default:0.1>] [--speed <default:1200>] [--maxpower <default:300>] [--poweroffset <default:0>] [--invert | --no-invert]
+                   [--onedirectionscan | --no-onedirectionscan]
                    [--size gcode-width gcode-height] [--offset X-off Y-off] [--center] [--speedmoves <default:10>] [--noise <default:0>] [--overscan <default:0>]
                    [--showoverscan] [--constantburn | --no-constantburn] [--validate] [--genimages pixel-width pixel-height write] [-V]
                    [image] [gcode]
@@ -95,6 +98,8 @@ options:
                         pixel intensity to laser power: shift power range [0-maxpower]
   --invert, --no-invert
                         default invert image pixels
+  --onedirectionscan, --no-onedirectionscan
+                        scan in one direction only. Laser is turned on only when moving left to right. (default: off, scan in both directions)
   --size gcode-width gcode-height
                         target gcode width and height in mm (default: not set and determined by pixelsize and image source resolution)
   --offset X-off Y-off  laser drawing starts at offset in mm (default not set, --center cannot be set at the same time)
