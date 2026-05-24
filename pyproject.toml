@@ -13,9 +13,9 @@ dynamic = ["version", "description"]
 keywords = ["engraving", "laser", "image", "laser engraving", "PWM", "gcode"]
 dependencies = [
     "gcode2image >= 2.3.1",
-    "numpy >= 1.24.3",
+    "numpy >= 1.24.3,<= 2.4.6",
     "Pillow >= 9.5.0",
-    "nptyping >= 2.0.0",
+    "np2typing >= 2.6.3",
 ]
 
 requires-python = ">=3.7"
