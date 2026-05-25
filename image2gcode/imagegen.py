@@ -6,7 +6,6 @@ make test images
 import sys
 import re
 import argparse
-import readline
 import random
 from typing import TextIO
 from datetime import datetime
