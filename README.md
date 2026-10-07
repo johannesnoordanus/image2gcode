@@ -1,4 +1,4 @@
-# image2gcode 
+# image2gcode
 Convert an image to gcode for GRBL v1.1 compatible diode laser engravers. 
 
 Diode lasers are fast at switching to different power levels. This makes them ideal to write pixels (with discrete intensity levels) at a relatively fast rate.
