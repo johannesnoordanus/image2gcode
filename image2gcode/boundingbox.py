@@ -19,7 +19,7 @@ class Boundingbox:
             self.update(Point(*point))
 
     def __repr__(self):
-        return (f"Boundingbox: (X{round(self._bbox.lowerleft.x,2)},Y{round(self._bbox.lowerleft.y,2)}:"
+        return (f"(X{round(self._bbox.lowerleft.x,2)},Y{round(self._bbox.lowerleft.y,2)}:"
                 f"X{round(self._bbox.upperright.x,2)},Y{round(self._bbox.upperright.y,2)})")
 
     def update(self, point: Point):
